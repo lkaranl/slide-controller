@@ -20,6 +20,7 @@ export const AppProvider = ({ children }) => {
   const [timerValue, setTimerValue] = useState('00:00:00');
   const [serverMessages, setServerMessages] = useState([]);
   const [serverInfo, setServerInfo] = useState('Servidor Python');
+  const [useServerTimer, setUseServerTimer] = useState(true);
   
   // Referência para o WebSocket
   const socketRef = useRef(null);
@@ -200,75 +201,101 @@ export const AppProvider = ({ children }) => {
   
   // Melhorar os controles do temporizador
   const startTimer = () => {
-    // Enviar comando para iniciar o temporizador
-    const success = handleSendCommand('TIMER_START');
-    if (success) {
-      // Atualizar estado local imediatamente para feedback mais rápido
+    if (useServerTimer) {
+      // Enviar comando para iniciar o temporizador no servidor
+      const success = handleSendCommand('TIMER_START');
+      if (success) {
+        setTimerActive(true);
+      }
+      return success;
+    } else {
+      // Usar temporizador local
       setTimerActive(true);
       
-      // Implementar um temporizador local para backup caso o servidor não envie atualizações
+      // Implementar um temporizador local
       if (!timerInterval.current) {
         // Pegar o tempo acumulado antes da pausa
         let seconds = accumulatedTimeRef.current;
         let lastTime = Date.now();
         
         timerInterval.current = setInterval(() => {
-          // Só atualizar se estiver ativo
-          if (timerActive) {
-            const now = Date.now();
-            seconds += Math.floor((now - lastTime) / 1000);
-            lastTime = now;
-            
-            // Salvar o tempo acumulado para uso após pausa/retomada
-            accumulatedTimeRef.current = seconds;
-            
-            // Formatar o tempo
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            const formattedTime = 
-              `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            
-            setTimerValue(formattedTime);
-          }
+          const now = Date.now();
+          seconds += Math.floor((now - lastTime) / 1000);
+          lastTime = now;
+          
+          // Salvar o tempo acumulado para uso após pausa/retomada
+          accumulatedTimeRef.current = seconds;
+          
+          // Formatar o tempo
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.floor((seconds % 3600) / 60);
+          const secs = seconds % 60;
+          const formattedTime = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+          
+          setTimerValue(formattedTime);
         }, 1000);
       }
+      return true;
     }
-    return success;
   };
   
   const stopTimer = () => {
-    const success = handleSendCommand('TIMER_STOP');
-    if (success) {
+    if (useServerTimer) {
+      // Parar o temporizador do servidor
+      const success = handleSendCommand('TIMER_STOP');
+      if (success) {
+        setTimerActive(false);
+      }
+      return success;
+    } else {
+      // Parar o temporizador local
       setTimerActive(false);
       
-      // Limpar o temporizador local, mas preservar o tempo acumulado
       if (timerInterval.current) {
         clearInterval(timerInterval.current);
         timerInterval.current = null;
-        // Não precisamos redefinir accumulatedTimeRef.current aqui
-        // para que possamos retomar do mesmo ponto
       }
+      return true;
     }
-    return success;
   };
   
   const resetTimer = () => {
-    const success = handleSendCommand('TIMER_RESET');
-    if (success) {
+    if (useServerTimer) {
+      // Resetar o temporizador do servidor
+      const success = handleSendCommand('TIMER_RESET');
+      if (success) {
+        setTimerValue('00:00:00');
+      }
+      return success;
+    } else {
+      // Resetar o temporizador local
       setTimerValue('00:00:00');
-      
-      // Também precisamos resetar o contador local
       accumulatedTimeRef.current = 0;
       
-      // Se o temporizador estiver ativo, reinicie-o do zero
       if (timerActive && timerInterval.current) {
         clearInterval(timerInterval.current);
         timerInterval.current = null;
-        startTimer();
+        
+        // Reiniciar o temporizador local
+        let lastTime = Date.now();
+        timerInterval.current = setInterval(() => {
+          const now = Date.now();
+          accumulatedTimeRef.current += Math.floor((now - lastTime) / 1000);
+          lastTime = now;
+          
+          const seconds = accumulatedTimeRef.current;
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.floor((seconds % 3600) / 60);
+          const secs = seconds % 60;
+          const formattedTime = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+          
+          setTimerValue(formattedTime);
+        }, 1000);
       }
+      return true;
     }
-    return success;
   };
   
   // Limpar o temporizador quando o componente for desmontado
@@ -298,6 +325,8 @@ export const AppProvider = ({ children }) => {
     timerValue,
     serverMessages,
     serverInfo,
+    useServerTimer,
+    setUseServerTimer,
     
     connectToServer: handleConnectToServer,
     disconnectFromServer: handleDisconnectFromServer,

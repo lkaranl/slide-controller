@@ -9,7 +9,8 @@ import {
   Alert,
   ScrollView,
   TextInput,
-  Modal
+  Modal,
+  Switch
 } from 'react-native';
 import { useAppContext } from '../context/AppContext';
 import { useVolumeButtons } from '../hooks/useVolumeButtons';
@@ -33,7 +34,9 @@ export const ControlScreen = () => {
     resetTimer,
     timerActive,
     timerValue,
-    serverMessages
+    serverMessages,
+    setUseServerTimer,
+    useServerTimer
   } = useAppContext();
   
   // Estados locais
@@ -105,6 +108,11 @@ export const ControlScreen = () => {
     }
   };
   
+  // Função para alternar o modo do temporizador
+  const toggleTimerMode = (value) => {
+    setUseServerTimer(value);
+  };
+  
   return (
     <Animated.View style={[styles.container, { opacity: controlsOpacity }]}>
       <View style={styles.header}>
@@ -149,9 +157,22 @@ export const ControlScreen = () => {
             <Text style={styles.timerButtonText}>Resetar</Text>
           </TouchableOpacity>
         </View>
+        
+        {/* Interruptor para escolher o lado do temporizador */}
+        <View style={styles.timerModeContainer}>
+          <Text style={styles.timerModeLabel}>Local</Text>
+          <Switch
+            value={useServerTimer}
+            onValueChange={toggleTimerMode}
+            trackColor={{ false: "#767577", true: colors.primary }}
+            thumbColor={useServerTimer ? "#fff" : "#f4f3f4"}
+          />
+          <Text style={styles.timerModeLabel}>Servidor</Text>
+        </View>
+        
         {timerActive && (
           <Text style={styles.timerHint}>
-            O tempo está sendo controlado pelo servidor
+            {useServerTimer ? 'O tempo está sendo controlado pelo servidor' : 'O tempo está sendo controlado pelo app'}
           </Text>
         )}
       </View>
@@ -637,5 +658,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 6,
     fontStyle: 'italic',
+  },
+  timerModeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  timerModeLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginHorizontal: 6,
   },
 }); 

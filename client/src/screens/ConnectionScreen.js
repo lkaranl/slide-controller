@@ -6,6 +6,8 @@ import {
   TouchableOpacity, 
   StyleSheet,
   ActivityIndicator,
+  FlatList,
+  Modal,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../context/AppContext';
@@ -27,6 +29,8 @@ export const ConnectionScreen = () => {
   
   const [scanInProgress, setScanInProgress] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [availableServers, setAvailableServers] = useState([]);
+  const [serversModalVisible, setServersModalVisible] = useState(false);
   
   // Verificar IP salvo ao iniciar
   useEffect(() => {
@@ -47,39 +51,73 @@ export const ConnectionScreen = () => {
     checkSavedIP();
   }, []);
   
-  // Scanner de rede
+  // Scanner de rede modificado
   const handleScanNetwork = () => {
     setScanInProgress(true);
     setScanProgress(0);
+    setAvailableServers([]);
+    setServersModalVisible(false); // Garante que o modal não está aberto
     
     scanNetwork({
       onStart: () => {
         setIsScanning(true);
-        setServerStatus('Iniciando busca...');
+        setServerStatus('Iniciando busca por servidores...');
       },
       onProgress: (status) => {
         setServerStatus(status);
         
-        // Extrair porcentagem se presente na mensagem
+        // Atualizar a barra de progresso, se aplicável
         const percentMatch = status.match(/(\d+)%/);
         if (percentMatch && percentMatch[1]) {
           setScanProgress(parseInt(percentMatch[1], 10));
         }
+        
+        // Se encontrou um servidor, atualizar a interface
+        if (status.includes('Servidor encontrado:')) {
+          // A lista de servidores é atualizada pelo callback onServerFound
+        }
       },
-      onSuccess: (ip) => {
-        setServerIP(ip);
-        setServerStatus(`Servidor encontrado: ${ip}`);
-        setScanInProgress(false);
+      onServerFound: (ip) => {
+        // Adicionar à lista de servidores disponíveis
+        setAvailableServers(prevServers => {
+          if (!prevServers.includes(ip)) {
+            return [...prevServers, ip];
+          }
+          return prevServers;
+        });
       },
-      onFailure: () => {
-        setServerStatus('Nenhum servidor encontrado. Digite o IP manualmente.');
-        setScanInProgress(false);
-      },
-      onComplete: (found) => {
+      onComplete: (foundServers) => {
         setIsScanning(false);
         setScanInProgress(false);
+        
+        if (foundServers.length > 0) {
+          setServerStatus(`${foundServers.length} servidor(es) encontrado(s)`);
+          // Mostrar modal apenas se houver mais de um servidor
+          if (foundServers.length > 1) {
+            setServersModalVisible(true);
+          } else if (foundServers.length === 1) {
+            // Se houver apenas um servidor, seleciona automaticamente
+            setServerIP(foundServers[0]);
+            setServerStatus(`Servidor encontrado: ${foundServers[0]}`);
+          }
+        } else {
+          setServerStatus('Nenhum servidor encontrado. Digite o IP manualmente.');
+        }
       }
     });
+  };
+  
+  // Escolher servidor da lista
+  const selectServer = (ip) => {
+    setServerIP(ip);
+    setServersModalVisible(false);
+  };
+  
+  // Conectar ao servidor escolhido
+  const handleConnect = () => {
+    if (serverIP) {
+      connectToServer();
+    }
   };
   
   return (
@@ -117,12 +155,23 @@ export const ConnectionScreen = () => {
         <Text style={styles.statusText}>{serverStatus}</Text>
       )}
       
+      {availableServers.length > 0 && (
+        <TouchableOpacity
+          style={styles.serversListButton}
+          onPress={() => setServersModalVisible(true)}
+        >
+          <Text style={styles.serversListButtonText}>
+            Mostrar {availableServers.length} servidor(es) encontrado(s)
+          </Text>
+        </TouchableOpacity>
+      )}
+      
       <TouchableOpacity
         style={[
           styles.connectButton,
           (isConnecting || isScanning || !serverIP) ? styles.disabledButton : null
         ]}
-        onPress={connectToServer}
+        onPress={handleConnect}
         disabled={isConnecting || isScanning || !serverIP}
       >
         {isConnecting ? (
@@ -150,6 +199,47 @@ export const ConnectionScreen = () => {
           </Text>
         </View>
       )}
+      
+      {/* Modal para exibir lista de servidores */}
+      <Modal
+        visible={serversModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setServersModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Servidores Disponíveis</Text>
+            
+            <FlatList
+              data={availableServers}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.serverItem}
+                  onPress={() => selectServer(item)}
+                >
+                  <Text style={styles.serverItemIp}>{item}</Text>
+                  <Text style={styles.serverItemAction}>Selecionar</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyListText}>
+                  Nenhum servidor encontrado
+                </Text>
+              }
+              style={styles.serversList}
+            />
+            
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setServersModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       
       <Text style={styles.infoText}>
         Esta versão suporta todos os comandos do servidor Slide Controll v1.0.
@@ -271,5 +361,71 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     marginHorizontal: 20,
+  },
+  serversListButton: {
+    backgroundColor: colors.accent,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  serversListButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  serversList: {
+    maxHeight: 300,
+  },
+  serverItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  serverItemIp: {
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  serverItemAction: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  emptyListText: {
+    textAlign: 'center',
+    padding: 20,
+    color: colors.textSecondary,
+  },
+  closeButton: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  closeButtonText: {
+    color: colors.textPrimary,
+    fontWeight: 'bold',
   },
 }); 

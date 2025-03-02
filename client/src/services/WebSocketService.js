@@ -119,10 +119,11 @@ export const checkServer = (ip) => {
     try {
       const testSocket = new WebSocket(`ws://${ip}:${SERVER_PORT}`);
       
+      // Reduzir o timeout para 300ms para agilizar a varredura
       const timeout = setTimeout(() => {
         testSocket.close();
         reject(new Error('Timeout'));
-      }, 500);
+      }, 300);
       
       testSocket.onopen = () => {
         clearTimeout(timeout);
@@ -140,11 +141,13 @@ export const checkServer = (ip) => {
   });
 };
 
-// Scanner de rede aprimorado
+// Melhorar a varredura de rede para encontrar todos os servidores
 export const scanNetwork = async (callbacks) => {
-  const { onStart, onProgress, onSuccess, onFailure, onComplete } = callbacks;
+  const { onStart, onProgress, onServerFound, onComplete } = callbacks;
   
   if (onStart) onStart();
+  
+  const foundServers = [];
   
   try {
     // Verificar último IP usado
@@ -155,9 +158,8 @@ export const scanNetwork = async (callbacks) => {
       try {
         const available = await checkServer(lastIP);
         if (available) {
-          if (onSuccess) onSuccess(lastIP);
-          if (onComplete) onComplete(true);
-          return;
+          foundServers.push(lastIP);
+          if (onServerFound) onServerFound(lastIP);
         }
       } catch {
         // Continuar com a verificação da rede
@@ -165,12 +167,13 @@ export const scanNetwork = async (callbacks) => {
       }
     }
     
-    // Extrair o prefixo de rede do último IP para tentar primeiro
+    // Extrair os prefixos de rede para escanear
     let networkPrefixes = [];
+    
+    // Usar o último IP para determinar a rede mais provável
     if (lastIP) {
       const parts = lastIP.split('.');
       if (parts.length === 4) {
-        // Adicionar o prefixo de rede mais provável primeiro
         networkPrefixes.push(`${parts[0]}.${parts[1]}.${parts[2]}`);
       }
     }
@@ -182,59 +185,96 @@ export const scanNetwork = async (callbacks) => {
       }
     });
     
-    // Lista de IPs para verificar por ordem de probabilidade
-    const targetIPs = [];
+    if (onProgress) onProgress(`Iniciando varredura em ${networkPrefixes.length} redes`);
     
-    // IPs comuns de servidor por prefixo
-    const commonLastOctets = [1, 100, 101, 110, 150, 200, 254];
-    
-    // Gerar lista priorizada de IPs para verificar
-    networkPrefixes.forEach(prefix => {
-      commonLastOctets.forEach(lastOctet => {
-        targetIPs.push(`${prefix}.${lastOctet}`);
-      });
-    });
-    
-    // Realizar verificações em paralelo por lotes
-    const BATCH_SIZE = 5;
-    const MAX_SCAN_TIME = 25000; // Tempo máximo de escaneamento (25s)
+    // Realizar verificações numa faixa maior de IPs
+    const MAX_SCAN_TIME = 30000; // 30 segundos
     const startTime = Date.now();
     
-    for (let i = 0; i < targetIPs.length; i += BATCH_SIZE) {
-      // Verificar se não excedeu o tempo máximo
+    // Para cada prefixo de rede, verificamos todos os hosts possíveis (1-254)
+    for (const prefix of networkPrefixes) {
       if (Date.now() - startTime > MAX_SCAN_TIME) {
-        if (onProgress) onProgress(`Tempo limite excedido. Verificados ${i} endereços.`);
+        if (onProgress) onProgress("Tempo limite excedido, finalizando varredura");
         break;
       }
       
-      const progress = Math.round((i / Math.min(50, targetIPs.length)) * 100);
-      if (onProgress) onProgress(`Verificando rede ${progress}%`);
+      if (onProgress) onProgress(`Verificando rede: ${prefix}.*`);
       
-      const batch = targetIPs.slice(i, i + BATCH_SIZE);
-      const promises = batch.map(ip => 
-        checkServer(ip)
-          .then(available => available ? ip : null)
-          .catch(() => null)
-      );
+      // Verificar primeiro os IPs mais comuns para servidores (agiliza a descoberta)
+      const commonLastOctets = [1, 100, 101, 110, 150, 200, 254];
+      const batchPromises = [];
       
-      const results = await Promise.all(promises);
-      const foundIP = results.find(r => r !== null);
+      // Primeiro verificamos os IPs mais comuns
+      for (const lastOctet of commonLastOctets) {
+        const ip = `${prefix}.${lastOctet}`;
+        batchPromises.push(
+          checkServer(ip)
+            .then(available => {
+              if (available && !foundServers.includes(ip)) {
+                foundServers.push(ip);
+                if (onServerFound) onServerFound(ip);
+                if (onProgress) onProgress(`Servidor encontrado: ${ip}`);
+              }
+              return null;
+            })
+            .catch(() => null)
+        );
+      }
       
-      if (foundIP) {
-        if (onSuccess) onSuccess(foundIP);
-        if (onComplete) onComplete(true);
-        return;
+      // Esperar os resultados dos IPs comuns
+      await Promise.all(batchPromises);
+      
+      // Agora fazemos uma varredura mais completa (em lotes de 10 para não sobrecarregar)
+      const BATCH_SIZE = 10;
+      
+      // Verificamos todos os IPs possíveis, de 1 a 254
+      for (let lastOctet = 1; lastOctet <= 254; lastOctet++) {
+        // Pular os que já testamos nos IPs comuns
+        if (commonLastOctets.includes(lastOctet)) continue;
+        
+        // Verificar o tempo novamente
+        if (Date.now() - startTime > MAX_SCAN_TIME) {
+          if (onProgress) onProgress("Tempo limite excedido, finalizando varredura");
+          break;
+        }
+        
+        // Atualizar progresso periodicamente (a cada 20 IPs)
+        if (lastOctet % 20 === 0) {
+          const progress = Math.round((lastOctet / 254) * 100);
+          if (onProgress) onProgress(`Escaneando ${prefix}.* (${progress}%)`);
+        }
+        
+        // Verificar o IP atual
+        const ip = `${prefix}.${lastOctet}`;
+        try {
+          const available = await checkServer(ip);
+          if (available && !foundServers.includes(ip)) {
+            foundServers.push(ip);
+            if (onServerFound) onServerFound(ip);
+            if (onProgress) onProgress(`Servidor encontrado: ${ip}`);
+          }
+        } catch {
+          // Ignorar erros, continuar a varredura
+        }
       }
     }
     
-    // Nenhum servidor encontrado
-    if (onFailure) onFailure();
-    if (onComplete) onComplete(false);
+    // Informar sobre os resultados finais
+    if (onProgress) {
+      if (foundServers.length > 0) {
+        onProgress(`Varredura concluída: ${foundServers.length} servidor(es) encontrado(s)`);
+      } else {
+        onProgress('Varredura concluída: nenhum servidor encontrado');
+      }
+    }
+    
+    // Finalizar a varredura com os servidores encontrados
+    if (onComplete) onComplete(foundServers);
     
   } catch (error) {
     console.error('Erro no scanner:', error);
-    if (onFailure) onFailure();
-    if (onComplete) onComplete(false);
+    if (onProgress) onProgress(`Erro durante a varredura: ${error.message}`);
+    if (onComplete) onComplete([]);
   }
 };
 

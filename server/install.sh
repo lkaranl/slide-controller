@@ -1,10 +1,10 @@
 #!/bin/bash
 # Script para instalação e desinstalação do serviço "SlideController"
 
-SERVICE_NAME="SlideController"
+SERVICE_NAME="SlideController_X11"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-BIN_SOURCE="./SlideController"
-BIN_DEST="/usr/local/bin/SlideController"
+BIN_SOURCE="./bin/SlideController_X11"
+BIN_DEST="/usr/local/bin/SlideController_X11"
 
 # Define o diretório de trabalho como o diretório atual onde o script é executado
 WORKING_DIR="$(pwd)"
