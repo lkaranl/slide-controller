@@ -16,7 +16,7 @@ import { useAppContext } from '../context/AppContext';
 
 export const Header = ({ title, subtitle }) => {
   const { theme, isDarkTheme, toggleTheme } = useTheme();
-  const { disconnectFromServer, connected } = useAppContext();
+  const { disconnectFromServer, connected, isScanning, setIsScanning } = useAppContext();
   const [menuVisible, setMenuVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
@@ -128,6 +128,82 @@ export const Header = ({ title, subtitle }) => {
                 Configurações
               </Text>
             </TouchableOpacity>
+            
+            {/* Opção de Ajuda */}
+            <TouchableOpacity 
+              style={[styles.menuItem, {borderBottomColor: theme.divider}]}
+              onPress={() => {
+                setMenuVisible(false);
+                // Mostrar um modal de ajuda ou um guia rápido
+                Alert.alert(
+                  "Ajuda Rápida",
+                  "• Para conectar: Digite o IP ou escaneie a rede\n• Use os botões para navegar pelos slides\n• Os botões de volume também controlam os slides\n• O temporizador ajuda a controlar o tempo\n• Modo escuro disponível no ícone ☀️/🌙",
+                  [{ text: "Entendi" }]
+                );
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>❓</Text>
+              <Text style={[styles.menuItemText, { color: theme.textPrimary }]}>
+                Ajuda Rápida
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Digitalizar Rede - Visível apenas quando não conectado */}
+            {!connected && (
+              <TouchableOpacity 
+                style={[styles.menuItem, {borderBottomColor: theme.divider}]}
+                onPress={() => {
+                  setMenuVisible(false);
+                  // Iniciar escaneamento de rede
+                  setIsScanning(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>🔍</Text>
+                <Text style={[styles.menuItemText, { color: theme.textPrimary }]}>
+                  Digitalizar Rede
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Compartilhar Aplicativo */}
+            <TouchableOpacity 
+              style={[styles.menuItem, {borderBottomColor: theme.divider}]}
+              onPress={() => {
+                setMenuVisible(false);
+                // Implementar compartilhamento
+                Linking.openURL('https://github.com/lkaranl/slide-controller');
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>📤</Text>
+              <Text style={[styles.menuItemText, { color: theme.textPrimary }]}>
+                Compartilhar Aplicativo
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Histórico de Conexões - Visível apenas quando não conectado */}
+            {!connected && (
+              <TouchableOpacity 
+                style={[styles.menuItem, {borderBottomColor: theme.divider}]}
+                onPress={() => {
+                  setMenuVisible(false);
+                  // Aqui você pode implementar um modal para mostrar histórico de servidores
+                  Alert.alert(
+                    "Recurso em Desenvolvimento",
+                    "O histórico de conexões será implementado em uma versão futura.",
+                    [{ text: "OK" }]
+                  );
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>📋</Text>
+                <Text style={[styles.menuItemText, { color: theme.textPrimary }]}>
+                  Histórico de Conexões
+                </Text>
+              </TouchableOpacity>
+            )}
             
             {connected && (
               <TouchableOpacity 
