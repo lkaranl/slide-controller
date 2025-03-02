@@ -23,12 +23,10 @@ export const ControlScreen = () => {
     lastCommand,
     serverIP,
     socketRef,
-    // Novos recursos
+    // Recursos de apresentação
     startPresentation,
     endPresentation,
     blankScreen,
-    goToSlide,
-    skipSlides,
     startTimer,
     stopTimer,
     resetTimer,
@@ -41,12 +39,9 @@ export const ControlScreen = () => {
   
   // Estados locais
   const [advancedOptionsVisible, setAdvancedOptionsVisible] = useState(false);
-  const [slideNumber, setSlideNumber] = useState('');
-  const [skipCount, setSkipCount] = useState('5');
   
   // Animações
   const controlsOpacity = useRef(new Animated.Value(0)).current;
-  const feedbackOpacity = useRef(new Animated.Value(0)).current;
   
   // Animar entrada dos controles
   useEffect(() => {
@@ -59,7 +54,7 @@ export const ControlScreen = () => {
     // Mostrar alerta ao usuário sobre os comandos disponíveis
     Alert.alert(
       "Controle de Apresentação",
-      "Este aplicativo agora suporta recursos avançados como:\n• Iniciar/finalizar apresentação\n• Ir para slide específico\n• Tela em branco\n• Temporizador",
+      "Este aplicativo suporta:\n• Navegação de slides\n• Iniciar/finalizar apresentação\n• Tela em branco\n• Temporizador",
       [{ text: "Entendi", onPress: () => console.log("Alerta fechado") }]
     );
   }, []);
@@ -69,24 +64,9 @@ export const ControlScreen = () => {
     handleCommand(command);
   });
   
-  // Função para lidar com comandos
+  // Função para lidar com comandos (simplificada, sem feedback visual)
   const handleCommand = (command) => {
-    // Mostrar feedback
-    Animated.sequence([
-      Animated.timing(feedbackOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.delay(800),
-      Animated.timing(feedbackOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    // Vibrar como feedback tátil
+    // Apenas vibrar como feedback tátil
     Vibration.vibrate(50);
     
     // Enviar comando
@@ -129,7 +109,7 @@ export const ControlScreen = () => {
         </TouchableOpacity>
       </View>
       
-      {/* Temporizador melhorado */}
+      {/* Temporizador */}
       <View style={styles.timerContainer}>
         <Text style={styles.timerLabel}>Temporizador</Text>
         <Text style={[
@@ -163,7 +143,7 @@ export const ControlScreen = () => {
           <Text style={styles.timerModeLabel}>Local</Text>
           <Switch
             value={useServerTimer}
-            onValueChange={toggleTimerMode}
+            onValueChange={(value) => setUseServerTimer(value)}
             trackColor={{ false: "#767577", true: colors.primary }}
             thumbColor={useServerTimer ? "#fff" : "#f4f3f4"}
           />
@@ -177,8 +157,8 @@ export const ControlScreen = () => {
         )}
       </View>
       
+      {/* Controles principais de navegação (maiores) */}
       <View style={styles.controlsContainer}>
-        {/* Controles principais */}
         <View style={styles.mainControls}>
           <TouchableOpacity
             style={styles.mainButton}
@@ -208,147 +188,50 @@ export const ControlScreen = () => {
         </TouchableOpacity>
       </View>
       
-      {/* Mensagens do servidor */}
-      {/* {serverMessages.length > 0 && (
-        <View style={styles.messagesContainer}>
-          <Text style={styles.messagesTitle}>Mensagens do Servidor:</Text>
-          {serverMessages.map((msg, index) => (
-            <Text key={index} style={styles.messageText}>• {msg}</Text>
-          ))}
-        </View>
-      )} */}
-      
-      {/* Feedback de comando */}
-      <Animated.View 
-        style={[
-          styles.feedbackContainer, 
-          { opacity: feedbackOpacity }
-        ]}
-        pointerEvents="none"
-      >
-        {/* <Text style={styles.feedbackText}>
-          {lastCommand ? getCommandText(lastCommand) : ''}
-        </Text> */}
-      </Animated.View>
-      
-     
-      
-      {/* Modal de controles avançados */}
+      {/* Modal de opções avançadas simplificado */}
       <Modal
         visible={advancedOptionsVisible}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setAdvancedOptionsVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Controles Avançados</Text>
+            <Text style={styles.modalTitle}>Controles de Apresentação</Text>
             
-            {/* Iniciar/finalizar apresentação */}
-            <View style={styles.modalSection}>
-              <Text style={styles.sectionTitle}>Apresentação</Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity 
-                  style={styles.modalButton}
-                  onPress={() => {
-                    startPresentation();
-                    setAdvancedOptionsVisible(false);
-                  }}
-                >
-                  <Text style={styles.modalButtonText}>Iniciar</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.modalButton}
-                  onPress={() => {
-                    endPresentation();
-                    setAdvancedOptionsVisible(false);
-                  }}
-                >
-                  <Text style={styles.modalButtonText}>Finalizar</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.modalButton}
-                  onPress={() => {
-                    blankScreen();
-                    setAdvancedOptionsVisible(false);
-                  }}
-                >
-                  <Text style={styles.modalButtonText}>Tela Preta</Text>
-                </TouchableOpacity>
-              </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalButton}
+                onPress={() => {
+                  startPresentation();
+                  setAdvancedOptionsVisible(false);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Iniciar Apresentação</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalButton}
+                onPress={() => {
+                  endPresentation();
+                  setAdvancedOptionsVisible(false);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Finalizar Apresentação</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalButton}
+                onPress={() => {
+                  blankScreen();
+                  setAdvancedOptionsVisible(false);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Alternar Tela Preta</Text>
+              </TouchableOpacity>
             </View>
             
-            {/* Navegação avançada */}
-            <View style={styles.modalSection}>
-              <Text style={styles.sectionTitle}>Navegação Avançada</Text>
-              
-              {/* Ir para slide específico */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Ir para slide:</Text>
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={styles.modalInput}
-                    keyboardType="numeric"
-                    value={slideNumber}
-                    onChangeText={setSlideNumber}
-                    placeholder="Número"
-                  />
-                  <TouchableOpacity 
-                    style={styles.inputButton}
-                    onPress={() => {
-                      if (slideNumber) {
-                        goToSlide(slideNumber);
-                        setAdvancedOptionsVisible(false);
-                      }
-                    }}
-                  >
-                    <Text style={styles.inputButtonText}>Ir</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              
-              {/* Pular múltiplos slides */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Pular slides:</Text>
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={styles.modalInput}
-                    keyboardType="numeric"
-                    value={skipCount}
-                    onChangeText={setSkipCount}
-                    placeholder="Quantidade"
-                  />
-                  <View style={styles.skipButtonsRow}>
-                    <TouchableOpacity 
-                      style={[styles.skipButton, styles.skipBackButton]}
-                      onPress={() => {
-                        if (skipCount) {
-                          skipSlides(-parseInt(skipCount, 10));
-                          setAdvancedOptionsVisible(false);
-                        }
-                      }}
-                    >
-                      <Text style={styles.skipButtonText}>◀ Voltar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.skipButton, styles.skipForwardButton]}
-                      onPress={() => {
-                        if (skipCount) {
-                          skipSlides(parseInt(skipCount, 10));
-                          setAdvancedOptionsVisible(false);
-                        }
-                      }}
-                    >
-                      <Text style={styles.skipButtonText}>Avançar ▶</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-            
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setAdvancedOptionsVisible(false)}
             >
@@ -357,10 +240,6 @@ export const ControlScreen = () => {
           </View>
         </View>
       </Modal>
-      
-      <Text style={styles.serverInfo}>
-        Desenvolvido por Karan Luciano
-      </Text>
     </Animated.View>
   );
 };
@@ -369,154 +248,132 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: colors.primary,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   headerTextContainer: {
     flex: 1,
   },
   title: {
-    color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    color: colors.primary,
   },
   subtitle: {
-    color: '#fff',
-    fontSize: 12,
-    opacity: 0.8,
-    marginTop: 2,
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
   disconnectButton: {
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: colors.error,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
   disconnectText: {
     color: '#fff',
-    fontSize: 14,
+    fontWeight: 'bold',
   },
-  controlsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  mainControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  mainButton: {
-    width: '48%',
-    height: 160,
-    justifyContent: 'center',
+  timerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  nextButton: {
-    backgroundColor: colors.primary,
-  },
-  buttonIcon: {
-    fontSize: 40,
-    color: colors.primary,
-    marginBottom: 10,
-  },
-  nextButtonIcon: {
-    color: '#fff',
-  },
-  mainButtonText: {
+  timerLabel: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.textPrimary,
-  },
-  nextButtonText: {
-    color: '#fff',
-  },
-  feedbackContainer: {
-    position: 'absolute',
-    bottom: 100,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  feedbackText: {
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-  },
-  helpContainer: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  helpText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  serverInfo: {
-    position: 'absolute',
-    bottom: 10,
-    alignSelf: 'center',
-    fontSize: 12,
-    color: colors.textSecondary,
-    opacity: 0.7,
-  },
-  timerContainer: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginHorizontal: 24,
-    marginTop: 16,
-    borderRadius: 8,
-  },
-  timerLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   timerValue: {
-    fontSize: 24,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 8,
+    color: colors.textPrimary,
+    marginBottom: 16,
+    fontFamily: 'monospace',
   },
   timerButtons: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   timerButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 8,
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    marginHorizontal: 8,
+    borderRadius: 8,
+    width: '48%',
+    alignItems: 'center',
+  },
+  timerStartButton: {
+    backgroundColor: colors.primary,
   },
   timerStopButton: {
     backgroundColor: colors.error,
-  },
-  timerStartButton: {
-    backgroundColor: colors.success,
   },
   timerButtonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
+  controlsContainer: {
+    marginBottom: 20,
+    flex: 1,
+  },
+  mainControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    flex: 1,
+  },
+  mainButton: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '48%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  buttonIcon: {
+    fontSize: 36,
+    color: colors.primary,
+    marginBottom: 16,
+  },
+  mainButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  nextButton: {
+    backgroundColor: colors.primary,
+  },
+  nextButtonIcon: {
+    color: '#fff',
+  },
+  nextButtonText: {
+    color: '#fff',
+  },
   advancedButton: {
-    backgroundColor: '#e0e0e0',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 16,
@@ -524,140 +381,7 @@ const styles = StyleSheet.create({
   advancedButtonText: {
     color: colors.textPrimary,
     fontWeight: 'bold',
-  },
-  messagesContainer: {
-    marginHorizontal: 24,
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 8,
-  },
-  messagesTitle: {
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  messageText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginVertical: 2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  modalButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    width: '30%',
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modalInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#f9f9f9',
-  },
-  inputButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  inputButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  skipButtonsRow: {
-    flexDirection: 'row',
-    marginLeft: 8,
-  },
-  skipButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginHorizontal: 4,
-  },
-  skipBackButton: {
-    backgroundColor: '#e0e0e0',
-  },
-  skipForwardButton: {
-    backgroundColor: colors.primary,
-  },
-  skipButtonText: {
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  closeButton: {
-    backgroundColor: '#e0e0e0',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: colors.textPrimary,
-    fontWeight: 'bold',
-  },
-  timerActiveValue: {
-    color: colors.success,
-  },
-  timerHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 6,
-    fontStyle: 'italic',
   },
   timerModeContainer: {
     flexDirection: 'row',
@@ -669,5 +393,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginHorizontal: 6,
+  },
+  timerHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    marginBottom: 16,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  closeButton: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: colors.textPrimary,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 }); 
