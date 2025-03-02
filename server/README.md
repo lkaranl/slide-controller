@@ -15,6 +15,14 @@ SlideControl é um servidor de controle de apresentações que permite enviar co
 
 Você pode executar o servidor diretamente com o arquivo Python:
 
+Padrão:
+
+```bash
+python3 SlideController.py
+```
+
+Caso queira mais opções:
+
 ```bash
 python3 SlideController.py [opções]
 ```
