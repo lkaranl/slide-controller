@@ -5,7 +5,9 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   Modal,
-  Pressable 
+  Pressable,
+  ScrollView,
+  Linking
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAppContext } from '../context/AppContext';
@@ -14,6 +16,13 @@ export const Header = ({ title, subtitle }) => {
   const { theme, isDarkTheme, toggleTheme } = useTheme();
   const { disconnectFromServer, connected } = useAppContext();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  
+  // Abrir o modal "Sobre"
+  const openAboutModal = () => {
+    setMenuVisible(false); // Fechar o menu principal
+    setAboutModalVisible(true); // Abrir o modal "Sobre"
+  };
   
   return (
     <View style={[styles.header, { 
@@ -85,10 +94,7 @@ export const Header = ({ title, subtitle }) => {
             
             <TouchableOpacity 
               style={[styles.menuItem, {borderBottomColor: theme.divider}]}
-              onPress={() => {
-                // Aqui você pode implementar ações futuras
-                setMenuVisible(false);
-              }}
+              onPress={openAboutModal}
               activeOpacity={0.7}
             >
               <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>ℹ️</Text>
@@ -133,6 +139,162 @@ export const Header = ({ title, subtitle }) => {
               activeOpacity={0.8}
             >
               <Text style={[styles.closeButtonText, { color: 'white' }]}>
+                Fechar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal Sobre o Aplicativo */}
+      <Modal
+        visible={aboutModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAboutModalVisible(false)}
+      >
+        <View style={{flex: 1, backgroundColor: theme.modalBackground}}>
+          <View 
+            style={{
+              flex: 1, 
+              marginTop: 50,
+              backgroundColor: theme.cardBackground,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              borderTopWidth: 4,
+              borderTopColor: theme.primary,
+            }}
+          >
+            <Text style={{
+              fontSize: 22, 
+              fontWeight: 'bold', 
+              color: theme.primary,
+              textAlign: 'center',
+              marginBottom: 16
+            }}>
+              Sobre o Aplicativo
+            </Text>
+            
+            <ScrollView style={{flex: 1}}>
+              <View style={{alignItems: 'center', marginBottom: 20}}>
+                <Text style={{
+                  fontSize: 24, 
+                  fontWeight: 'bold', 
+                  color: theme.primary,
+                  textAlign: 'center'
+                }}>
+                  Slide Controller
+                </Text>
+                <Text style={{fontSize: 14, color: theme.textSecondary}}>
+                  v1
+                </Text>
+              </View>
+              
+              <View style={{height: 1, backgroundColor: theme.divider, marginVertical: 16}} />
+              
+              <Text style={{fontSize: 18, fontWeight: 'bold', color: theme.primary}}>
+                Descrição
+              </Text>
+              <Text style={{fontSize: 15, color: theme.textPrimary, marginTop: 8, lineHeight: 22}}>
+                Slide Controller é um aplicativo para controle remoto de apresentações de slides através de uma conexão WebSocket com um servidor Python. Ideal para apresentações acadêmicas, empresariais e educacionais.
+              </Text>
+              
+              <Text style={{fontSize: 18, fontWeight: 'bold', color: theme.primary, marginTop: 20}}>
+                Funcionalidades
+              </Text>
+              <View style={{marginTop: 8}}>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  • Navegação entre slides (anterior/próximo)
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  • Iniciar/Finalizar apresentação
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  • Controle de tela preta
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  • Temporizador para controle de tempo
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  • Busca automática de servidores na rede
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  • Tema claro/escuro
+                </Text>
+              </View>
+              
+              <Text style={{fontSize: 18, fontWeight: 'bold', color: theme.primary, marginTop: 20}}>
+                Como Usar
+              </Text>
+              <View style={{marginTop: 8}}>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  1. Inicie o servidor Python no computador com a apresentação
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  2. Conecte o aplicativo mobile ao servidor via IP ou busca automática
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  3. Use os botões para navegar pelos slides e controlar a apresentação
+                </Text>
+                <Text style={{fontSize: 15, color: theme.textPrimary, lineHeight: 24}}>
+                  4. Os botões de volume também funcionam como navegação rápida
+                </Text>
+              </View>
+              
+              <Text style={{fontSize: 18, fontWeight: 'bold', color: theme.primary, marginTop: 20}}>
+                Desenvolvedor
+              </Text>
+              <Text style={{fontSize: 15, color: theme.textPrimary, marginTop: 8}}>
+                Karan Luciano
+              </Text>
+              
+              <TouchableOpacity
+                onPress={() => Linking.openURL('https://github.com/lkaranl/slide-controller')}
+                style={{marginTop: 20, paddingVertical: 8}}
+              >
+                <Text style={{
+                  fontSize: 16, 
+                  fontWeight: '500', 
+                  color: theme.primary,
+                  textDecorationLine: 'underline'
+                }}>
+                  GitHub do Projeto
+                </Text>
+              </TouchableOpacity>
+              
+              <Text style={{
+                fontSize: 12, 
+                color: theme.textSecondary, 
+                textAlign: 'center',
+                marginTop: 30
+              }}>
+                © {new Date().getFullYear()} - Licença MIT
+              </Text>
+              <Text style={{
+                fontSize: 12, 
+                color: theme.textSecondary,
+                textAlign: 'center',
+                marginTop: 8,
+                fontStyle: 'italic',
+                marginBottom: 20
+              }}>
+                O código pode ser utilizado livremente, desde que mantidos os créditos ao autor original.
+              </Text>
+            </ScrollView>
+            
+            <TouchableOpacity 
+              style={{
+                backgroundColor: theme.primary,
+                paddingVertical: 14,
+                borderRadius: 12,
+                alignItems: 'center',
+                marginTop: 16
+              }}
+              onPress={() => setAboutModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>
                 Fechar
               </Text>
             </TouchableOpacity>
@@ -189,6 +351,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 4,
     elevation: 24,
   },
+  aboutContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    borderTopWidth: 4,
+    elevation: 24,
+    maxHeight: '90%',
+  },
   menuHeaderBar: {
     width: 40,
     height: 4,
@@ -224,5 +394,64 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  // Estilos para o modal "Sobre"
+  aboutContent: {
+    flex: 1,
+  },
+  appInfoSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  appNameText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  versionText: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  separator: {
+    height: 1,
+    width: '100%',
+    marginVertical: 16,
+  },
+  aboutSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  aboutText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  featuresList: {
+    marginTop: 8,
+  },
+  featureItem: {
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  linkButton: {
+    marginTop: 20,
+    paddingVertical: 8,
+  },
+  linkText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  copyrightText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 30,
+    marginBottom: 10,
+  },
+  licenseText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   }
 }); 
