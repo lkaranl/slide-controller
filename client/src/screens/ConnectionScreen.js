@@ -32,6 +32,8 @@ export const ConnectionScreen = () => {
   const [availableServers, setAvailableServers] = useState([]);
   const [serversModalVisible, setServersModalVisible] = useState(false);
   const [scannedIPsCount, setScannedIPsCount] = useState(0);
+  const [networkPrefix, setNetworkPrefix] = useState('');
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   
   // Verificar IP salvo ao iniciar
   useEffect(() => {
@@ -255,6 +257,32 @@ export const ConnectionScreen = () => {
       <Text style={styles.portText}>
          Desenvolvido por Karan Luciano
       </Text>
+      
+      {showAdvancedOptions && (
+        <View style={styles.advancedContainer}>
+          <Text style={styles.advancedLabel}>Prefixo de rede (opcional):</Text>
+          <TextInput
+            style={styles.advancedInput}
+            placeholder="Ex: 192.168.1"
+            value={networkPrefix}
+            onChangeText={setNetworkPrefix}
+            keyboardType="decimal-pad"
+            editable={!isScanning}
+          />
+          <Text style={styles.advancedHint}>
+            Deixe em branco para detecção automática
+          </Text>
+        </View>
+      )}
+      
+      <TouchableOpacity
+        style={styles.advancedButton}
+        onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
+      >
+        <Text style={styles.advancedButtonText}>
+          {showAdvancedOptions ? 'Ocultar opções avançadas' : 'Opções avançadas'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -433,6 +461,46 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: colors.textPrimary,
+    fontWeight: 'bold',
+  },
+  advancedContainer: {
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  advancedLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 16,
+  },
+  advancedInput: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#212121',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  advancedHint: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  advancedButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  advancedButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 }); 

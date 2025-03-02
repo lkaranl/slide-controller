@@ -141,7 +141,7 @@ export const checkServer = (ip) => {
   });
 };
 
-// Melhorar o cálculo de progresso na varredura de rede
+// Melhorar a detecção de rede e limitar a busca à rede atual
 export const scanNetwork = async (callbacks) => {
   const { onStart, onProgress, onServerFound, onComplete } = callbacks;
   
@@ -154,6 +154,8 @@ export const scanNetwork = async (callbacks) => {
   try {
     // Verificar último IP usado primeiro (rápido)
     const lastIP = await AsyncStorage.getItem('lastServerIP');
+    let networkPrefix = '';
+    
     if (lastIP) {
       if (onProgress) onProgress(`Verificando último IP usado: ${lastIP}`, 0);
       
@@ -167,31 +169,22 @@ export const scanNetwork = async (callbacks) => {
         // Continuar com a verificação da rede
         if (onProgress) onProgress(`IP anterior ${lastIP} não está disponível`, 0);
       }
-    }
-    
-    // Extrair os prefixos de rede para escanear
-    let networkPrefixes = [];
-    
-    // Usar o último IP para determinar a rede mais provável
-    if (lastIP) {
+      
+      // Extrair prefixo de rede do último IP
       const parts = lastIP.split('.');
       if (parts.length === 4) {
-        networkPrefixes.push(`${parts[0]}.${parts[1]}.${parts[2]}`);
+        networkPrefix = `${parts[0]}.${parts[1]}.${parts[2]}`;
       }
     }
     
-    // Adicionar redes comuns que ainda não estão na lista
-    ['192.168.1', '192.168.0', '10.0.0', '172.16.0'].forEach(prefix => {
-      if (!networkPrefixes.includes(prefix)) {
-        networkPrefixes.push(prefix);
-      }
-    });
+    // Tentar identificar a rede local atual
+    if (!networkPrefix) {
+      // Em aplicações mobile não temos acesso direto às informações de rede
+      // Vamos usar apenas redes mais comuns se não tivermos o último IP
+      networkPrefix = '192.168.1'; // Rede mais comum em residências
+    }
     
-    // Calcular total aproximado de IPs a verificar (para progresso consistente)
-    // Para cada rede: 7 IPs comuns + aproximadamente 50 IPs adicionais (limitado pelo tempo)
-    totalIPsToScan = networkPrefixes.length * 57;
-    
-    if (onProgress) onProgress(`Iniciando varredura em ${networkPrefixes.length} redes`, 0);
+    if (onProgress) onProgress(`Escaneando a rede ${networkPrefix}.*`, 0);
     
     // Definir parâmetros para varredura paralela
     const MAX_SCAN_TIME = 20000; // 20 segundos
@@ -199,43 +192,34 @@ export const scanNetwork = async (callbacks) => {
     // Número de verificações em paralelo (aumentar para mais velocidade)
     const PARALLEL_CHECKS = 30; 
     
-    // Para cada prefixo de rede, realizar verificação paralela
-    for (const [networkIndex, prefix] of networkPrefixes.entries()) {
-      if (Date.now() - startTime > MAX_SCAN_TIME) {
-        if (onProgress) onProgress("Tempo limite excedido, finalizando varredura", 
-                                  Math.round((scannedIPs / totalIPsToScan) * 100));
-        break;
-      }
-      
-      // Calcular progresso geral com base em redes já verificadas
-      const networkProgress = Math.round((networkIndex / networkPrefixes.length) * 50);
-      if (onProgress) onProgress(`Verificando rede: ${prefix}.*`, networkProgress);
-      
-      // Primeiro verificamos IPs comuns para servidores (muito mais rápido)
-      const commonLastOctets = [1, 100, 101, 110, 150, 200, 254];
-      await Promise.all(commonLastOctets.map(async (lastOctet) => {
-        const ip = `${prefix}.${lastOctet}`;
-        try {
-          const available = await checkServer(ip);
-          if (available && !foundServers.includes(ip)) {
-            foundServers.push(ip);
-            if (onServerFound) onServerFound(ip);
-            if (onProgress) onProgress(`Servidor encontrado: ${ip}`, networkProgress);
-          }
-        } catch {
-          // Ignorar erros
+    // Calcular total aproximado de IPs a verificar
+    totalIPsToScan = 254; // Um range de rede completo
+    
+    // Primeiro verificamos IPs comuns para servidores (muito mais rápido)
+    const commonLastOctets = [1, 2, 100, 101, 110, 150, 200, 254];
+    if (onProgress) onProgress(`Verificando IPs comuns em ${networkPrefix}.*`, 5);
+    
+    await Promise.all(commonLastOctets.map(async (lastOctet) => {
+      const ip = `${networkPrefix}.${lastOctet}`;
+      try {
+        const available = await checkServer(ip);
+        if (available && !foundServers.includes(ip)) {
+          foundServers.push(ip);
+          if (onServerFound) onServerFound(ip);
+          if (onProgress) onProgress(`Servidor encontrado: ${ip}`, 5);
         }
-        scannedIPs++;
-      }));
-      
-      // Se já excedeu o tempo, não continuamos a varredura completa
-      if (Date.now() - startTime > MAX_SCAN_TIME) {
-        if (onProgress) onProgress("Tempo limite excedido, finalizando varredura", 
-                                  Math.round((scannedIPs / totalIPsToScan) * 100));
-        break;
+      } catch {
+        // Ignorar erros
       }
-      
-      // Agora fazemos varredura paralela do restante dos IPs
+      scannedIPs++;
+    }));
+    
+    // Se já excedeu o tempo, não continuamos a varredura completa
+    if (Date.now() - startTime > MAX_SCAN_TIME) {
+      if (onProgress) onProgress("Tempo limite excedido, finalizando varredura", 
+                                Math.round((scannedIPs / totalIPsToScan) * 100));
+    } else {
+      // Agora fazemos varredura paralela do restante dos IPs na mesma rede
       const remainingIPs = Array.from(
         { length: 254 }, 
         (_, i) => i + 1
@@ -249,22 +233,20 @@ export const scanNetwork = async (callbacks) => {
           break;
         }
         
-        // Calcular progresso combinado: base da rede + progresso dentro da rede atual
-        const networkInternalProgress = Math.round((i / remainingIPs.length) * 50);
-        // Progresso combina o progresso entre redes e o progresso dentro da rede atual
-        const totalProgress = networkProgress + networkInternalProgress / networkPrefixes.length;
+        // Calcular progresso dentro da rede atual
+        const progress = Math.round((i / remainingIPs.length) * 90) + 10; // começamos em 10%
         
         // Atualizar progresso periodicamente
         if (i % (PARALLEL_CHECKS * 2) === 0) {
-          if (onProgress) onProgress(`Escaneando ${prefix}.* (${Math.round(networkInternalProgress)}%)`, 
-                                    Math.round(totalProgress));
+          if (onProgress) onProgress(`Escaneando ${networkPrefix}.* (${Math.round((i / remainingIPs.length) * 100)}%)`, 
+                                    progress);
         }
         
         // Processar um lote de IPs em paralelo
         const batch = remainingIPs.slice(i, i + PARALLEL_CHECKS);
         const results = await Promise.all(
           batch.map(async (lastOctet) => {
-            const ip = `${prefix}.${lastOctet}`;
+            const ip = `${networkPrefix}.${lastOctet}`;
             try {
               const available = await checkServer(ip);
               return available ? ip : null;
@@ -281,7 +263,7 @@ export const scanNetwork = async (callbacks) => {
             if (!foundServers.includes(ip)) {
               foundServers.push(ip);
               if (onServerFound) onServerFound(ip);
-              if (onProgress) onProgress(`Servidor encontrado: ${ip}`, Math.round(totalProgress));
+              if (onProgress) onProgress(`Servidor encontrado: ${ip}`, progress);
             }
           });
         
