@@ -205,9 +205,9 @@ export const ControlScreen = () => {
         ]}
         pointerEvents="none"
       >
-        <Text style={styles.feedbackText}>
+        {/* <Text style={styles.feedbackText}>
           {lastCommand ? getCommandText(lastCommand) : ''}
-        </Text>
+        </Text> */}
       </Animated.View>
       
      
