@@ -75,9 +75,15 @@ const mapCommandToServerFormat = (command) => {
     case 'blank_screen': return 'BLANK_SCREEN';
     
     // Comandos do temporizador
-    case 'timer_start': return 'TIMER_START';
-    case 'timer_stop': return 'TIMER_STOP';
-    case 'timer_reset': return 'TIMER_RESET';
+    case 'timer_start': 
+      console.log('Enviando comando para iniciar temporizador');
+      return 'TIMER_START';
+    case 'timer_stop': 
+      console.log('Enviando comando para parar temporizador');
+      return 'TIMER_STOP';
+    case 'timer_reset': 
+      console.log('Enviando comando para resetar temporizador');
+      return 'TIMER_RESET';
     
     // Comandos especiais são tratados separadamente em funções específicas
     // (GOTO_SLIDE e SKIP_SLIDES)
@@ -256,4 +262,23 @@ export const testPythonCommands = (socketRef) => {
   });
   
   return true;
+};
+
+// Adicionar um heartbeat periódico para manter a conexão ativa
+export const startHeartbeat = (socketRef) => {
+  const interval = setInterval(() => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        // Enviar mensagem de heartbeat para manter a conexão
+        socketRef.current.send(JSON.stringify({ heartbeat: Date.now() }));
+      } catch (error) {
+        console.error('Erro ao enviar heartbeat:', error);
+      }
+    } else {
+      // Limpar o intervalo se a conexão estiver fechada
+      clearInterval(interval);
+    }
+  }, 30000); // A cada 30 segundos
+  
+  return interval;
 }; 

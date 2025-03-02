@@ -11,6 +11,7 @@ import yaml
 import threading
 import sqlite3
 from datetime import datetime
+import queue
 
 # Configuração de logging
 logging.basicConfig(
@@ -33,6 +34,10 @@ timer_active = False
 timer_seconds = 0
 timer_thread = None
 timer_start_time = 0
+timer_elapsed_before_pause = 0  # Nova variável para armazenar tempo acumulado
+
+# Fila para comunicação entre threads
+timer_message_queue = queue.Queue()
 
 # Variáveis para estatísticas
 stats = {
@@ -44,38 +49,49 @@ stats = {
 
 # Função para gerenciar o temporizador em segundo plano
 def timer_worker():
-    global timer_active, timer_seconds
+    global timer_active, timer_seconds, timer_start_time, timer_elapsed_before_pause
     
     while timer_active:
-        # Enviar atualizações a cada segundo
-        elapsed_seconds = int(time.time() - timer_start_time)
-        if elapsed_seconds != timer_seconds:
-            timer_seconds = elapsed_seconds
+        # Calcular o tempo total (tempo anterior + tempo atual)
+        current_elapsed = int(time.time() - timer_start_time)
+        total_elapsed = timer_elapsed_before_pause + current_elapsed
+        
+        if total_elapsed != timer_seconds:
+            timer_seconds = total_elapsed
             
             # Formatar o tempo
             minutes, seconds = divmod(timer_seconds, 60)
             hours, minutes = divmod(minutes, 60)
             time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             
-            # Enviar atualização aos clientes de forma assíncrona
-            asyncio.run_coroutine_threadsafe(
-                broadcast_status(f"Tempo decorrido: {time_str}"),
-                asyncio.get_event_loop()
-            )
+            # Enfileirar a mensagem para processamento no loop principal
+            timer_message_queue.put(f"Tempo decorrido: {time_str}")
             
             # Verificar se atingiu o tempo limite (se configurado)
             if "timer_limit" in config and config["timer_limit"] > 0:
                 if timer_seconds >= config["timer_limit"]:
                     # Enviar alerta de tempo esgotado
-                    asyncio.run_coroutine_threadsafe(
-                        broadcast_status("ALERTA: Tempo da apresentação esgotado!"),
-                        asyncio.get_event_loop()
-                    )
+                    timer_message_queue.put("ALERTA: Tempo da apresentação esgotado!")
                     timer_active = False
                     break
         
         # Dormir por um curto período para evitar uso excessivo de CPU
         time.sleep(0.1)
+
+# Função para verificar e processar mensagens do temporizador
+async def check_timer_messages():
+    while True:
+        # Verificar se há mensagens do temporizador
+        try:
+            while not timer_message_queue.empty():
+                message = timer_message_queue.get_nowait()
+                await broadcast_status(message)
+                timer_message_queue.task_done()
+        except Exception as e:
+            logger.error(f"Erro ao processar mensagens do temporizador: {e}")
+        
+        # Aguardar um curto período antes de verificar novamente
+        await asyncio.sleep(0.1)
 
 # Função para carregar configurações
 def load_config():
@@ -132,7 +148,7 @@ async def broadcast_status(status_message):
 
 # Função para controlar apresentação
 def control_presentation(command, data=None):
-    global keyboard, timer_active, timer_thread, timer_start_time
+    global keyboard, timer_active, timer_thread, timer_start_time, timer_elapsed_before_pause
     try:
         if command == "NEXT_SLIDE":
             logger.info("Comando: Próximo slide")
@@ -219,6 +235,11 @@ def control_presentation(command, data=None):
                 timer_active = False
                 if timer_thread:
                     timer_thread.join(1.0)  # Aguardar até 1 segundo para a thread terminar
+                
+                # Salvar o tempo decorrido até o momento
+                current_elapsed = int(time.time() - timer_start_time)
+                timer_elapsed_before_pause += current_elapsed
+                
                 return "Temporizador parado"
             return "Temporizador não está ativo"
         
@@ -230,6 +251,8 @@ def control_presentation(command, data=None):
                 timer_thread.join(1.0)
             
             timer_seconds = 0
+            timer_elapsed_before_pause = 0  # Resetar o tempo acumulado
+            
             if was_active:
                 timer_active = True
                 timer_start_time = time.time()
@@ -345,7 +368,7 @@ async def handle_connection(websocket):
     logger.info(f"Nova conexão de: {client_info}")
     
     # Verificar limite de clientes
-    config = load_config()  # ou passe o config como parâmetro global
+    global config
     if len(connected_clients) >= config["max_clients"]:
         logger.warning(f"Limite de clientes atingido ({config['max_clients']}). Recusando conexão de {client_info}")
         await websocket.send(json.dumps({
@@ -478,6 +501,8 @@ async def check_client_connections():
 
 # Função principal
 async def main():
+    global config  # Tornar config global para ser acessível por timer_worker
+    
     # Carregar configurações
     try:
         import yaml
@@ -545,6 +570,9 @@ async def main():
     # Iniciar tarefa de verificação de conexões
     connection_checker = asyncio.create_task(check_client_connections())
     
+    # Iniciar tarefa para processar mensagens do temporizador
+    timer_message_processor = asyncio.create_task(check_timer_messages())
+    
     try:
         # Manter servidor em execução
         await asyncio.Future()
@@ -552,10 +580,12 @@ async def main():
         # Ocorre quando o loop principal é cancelado
         pass
     finally:
-        # Cancelar a tarefa de verificação
+        # Cancelar as tarefas
         connection_checker.cancel()
+        timer_message_processor.cancel()
         try:
             await connection_checker
+            await timer_message_processor
         except asyncio.CancelledError:
             pass
         

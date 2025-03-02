@@ -152,7 +152,7 @@ export const ConnectionScreen = () => {
       )}
       
       <Text style={styles.infoText}>
-        Esta versão suporta todos os comandos do servidor Python v1.0.
+        Esta versão suporta todos os comandos do servidor Slide Controll v1.0.
       </Text>
       
       <Text style={styles.portText}>

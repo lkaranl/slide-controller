@@ -121,12 +121,21 @@ export const ControlScreen = () => {
         </TouchableOpacity>
       </View>
       
-      {/* Temporizador */}
+      {/* Temporizador melhorado */}
       <View style={styles.timerContainer}>
-        <Text style={styles.timerValue}>{timerValue}</Text>
+        <Text style={styles.timerLabel}>Temporizador</Text>
+        <Text style={[
+          styles.timerValue, 
+          timerActive ? styles.timerActiveValue : null
+        ]}>
+          {timerValue}
+        </Text>
         <View style={styles.timerButtons}>
           <TouchableOpacity 
-            style={[styles.timerButton, timerActive ? styles.timerStopButton : {}]}
+            style={[
+              styles.timerButton, 
+              timerActive ? styles.timerStopButton : styles.timerStartButton
+            ]}
             onPress={timerActive ? stopTimer : startTimer}
           >
             <Text style={styles.timerButtonText}>
@@ -140,6 +149,11 @@ export const ControlScreen = () => {
             <Text style={styles.timerButtonText}>Resetar</Text>
           </TouchableOpacity>
         </View>
+        {timerActive && (
+          <Text style={styles.timerHint}>
+            O tempo está sendo controlado pelo servidor
+          </Text>
+        )}
       </View>
       
       <View style={styles.controlsContainer}>
@@ -174,14 +188,14 @@ export const ControlScreen = () => {
       </View>
       
       {/* Mensagens do servidor */}
-      {serverMessages.length > 0 && (
+      {/* {serverMessages.length > 0 && (
         <View style={styles.messagesContainer}>
           <Text style={styles.messagesTitle}>Mensagens do Servidor:</Text>
           {serverMessages.map((msg, index) => (
             <Text key={index} style={styles.messageText}>• {msg}</Text>
           ))}
         </View>
-      )}
+      )} */}
       
       {/* Feedback de comando */}
       <Animated.View 
@@ -196,11 +210,7 @@ export const ControlScreen = () => {
         </Text>
       </Animated.View>
       
-      <View style={styles.helpContainer}>
-        <Text style={styles.helpText}>
-          Use os botões de volume para navegar pelos slides
-        </Text>
-      </View>
+     
       
       {/* Modal de controles avançados */}
       <Modal
@@ -328,7 +338,7 @@ export const ControlScreen = () => {
       </Modal>
       
       <Text style={styles.serverInfo}>
-        Servidor Python v1.0
+        Desenvolvido por Karan Luciano
       </Text>
     </Animated.View>
   );
@@ -450,6 +460,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 8,
   },
+  timerLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
   timerValue: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -469,6 +484,9 @@ const styles = StyleSheet.create({
   },
   timerStopButton: {
     backgroundColor: colors.error,
+  },
+  timerStartButton: {
+    backgroundColor: colors.success,
   },
   timerButtonText: {
     color: '#fff',
@@ -610,5 +628,14 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: colors.textPrimary,
     fontWeight: 'bold',
+  },
+  timerActiveValue: {
+    color: colors.success,
+  },
+  timerHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 }); 
