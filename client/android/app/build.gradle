@@ -1,0 +1,13 @@
+dependencies {
+    // ... outras dependências existentes
+    
+    // Adicione esta linha para suporte a WebSocket em Java
+    implementation 'tech.gusavila92:java-android-websocket-client:1.2.2'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.1'
+}
+
+project.ext.vectoricons = [
+    iconFontNames: [ 'MaterialIcons.ttf' ]
+]
+
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle" 
