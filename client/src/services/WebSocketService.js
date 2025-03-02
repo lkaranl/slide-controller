@@ -64,12 +64,25 @@ export const disconnectFromServer = (socketRef) => {
 
 // Mapear os comandos internos para o formato que o servidor espera
 const mapCommandToServerFormat = (command) => {
-  // O servidor Python só reconhece dois comandos:
-  // NEXT_SLIDE e PREV_SLIDE
   switch (command.toLowerCase()) {
-    case 'next': return 'NEXT_SLIDE';  // Avança para o próximo slide
-    case 'prev': return 'PREV_SLIDE';  // Retorna ao slide anterior
-    default: return command.toUpperCase();  // Outros comandos não fazem nada no servidor
+    // Comandos básicos
+    case 'next': return 'NEXT_SLIDE';
+    case 'prev': return 'PREV_SLIDE';
+    
+    // Comandos avançados de apresentação
+    case 'start_presentation': return 'START_PRESENTATION';
+    case 'end_presentation': return 'END_PRESENTATION';
+    case 'blank_screen': return 'BLANK_SCREEN';
+    
+    // Comandos do temporizador
+    case 'timer_start': return 'TIMER_START';
+    case 'timer_stop': return 'TIMER_STOP';
+    case 'timer_reset': return 'TIMER_RESET';
+    
+    // Comandos especiais são tratados separadamente em funções específicas
+    // (GOTO_SLIDE e SKIP_SLIDES)
+    
+    default: return command.toUpperCase();
   }
 };
 
@@ -121,7 +134,7 @@ export const checkServer = (ip) => {
   });
 };
 
-// Scanner de rede simplificado
+// Scanner de rede aprimorado
 export const scanNetwork = async (callbacks) => {
   const { onStart, onProgress, onSuccess, onFailure, onComplete } = callbacks;
   
@@ -142,25 +155,54 @@ export const scanNetwork = async (callbacks) => {
         }
       } catch {
         // Continuar com a verificação da rede
+        if (onProgress) onProgress(`IP anterior ${lastIP} não está disponível`);
       }
     }
     
-    // Redes comuns
-    const commonNetworks = ['192.168.1', '192.168.0', '10.0.0'];
+    // Extrair o prefixo de rede do último IP para tentar primeiro
+    let networkPrefixes = [];
+    if (lastIP) {
+      const parts = lastIP.split('.');
+      if (parts.length === 4) {
+        // Adicionar o prefixo de rede mais provável primeiro
+        networkPrefixes.push(`${parts[0]}.${parts[1]}.${parts[2]}`);
+      }
+    }
+    
+    // Adicionar redes comuns que ainda não estão na lista
+    ['192.168.1', '192.168.0', '10.0.0', '172.16.0'].forEach(prefix => {
+      if (!networkPrefixes.includes(prefix)) {
+        networkPrefixes.push(prefix);
+      }
+    });
+    
+    // Lista de IPs para verificar por ordem de probabilidade
     const targetIPs = [];
     
-    // Gerar lista de IPs para verificar
-    commonNetworks.forEach(network => {
-      // Verificar primeiro IPs comuns
-      [1, 100, 101, 150, 200, 254].forEach(i => {
-        targetIPs.push(`${network}.${i}`);
+    // IPs comuns de servidor por prefixo
+    const commonLastOctets = [1, 100, 101, 110, 150, 200, 254];
+    
+    // Gerar lista priorizada de IPs para verificar
+    networkPrefixes.forEach(prefix => {
+      commonLastOctets.forEach(lastOctet => {
+        targetIPs.push(`${prefix}.${lastOctet}`);
       });
     });
     
     // Realizar verificações em paralelo por lotes
     const BATCH_SIZE = 5;
+    const MAX_SCAN_TIME = 25000; // Tempo máximo de escaneamento (25s)
+    const startTime = Date.now();
+    
     for (let i = 0; i < targetIPs.length; i += BATCH_SIZE) {
-      if (onProgress) onProgress(`Verificando rede ${Math.round((i / targetIPs.length) * 100)}%`);
+      // Verificar se não excedeu o tempo máximo
+      if (Date.now() - startTime > MAX_SCAN_TIME) {
+        if (onProgress) onProgress(`Tempo limite excedido. Verificados ${i} endereços.`);
+        break;
+      }
+      
+      const progress = Math.round((i / Math.min(50, targetIPs.length)) * 100);
+      if (onProgress) onProgress(`Verificando rede ${progress}%`);
       
       const batch = targetIPs.slice(i, i + BATCH_SIZE);
       const promises = batch.map(ip => 

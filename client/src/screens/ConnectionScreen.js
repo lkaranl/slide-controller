@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -25,6 +25,9 @@ export const ConnectionScreen = () => {
     setServerStatus
   } = useAppContext();
   
+  const [scanInProgress, setScanInProgress] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  
   // Verificar IP salvo ao iniciar
   useEffect(() => {
     const checkSavedIP = async () => {
@@ -46,6 +49,9 @@ export const ConnectionScreen = () => {
   
   // Scanner de rede
   const handleScanNetwork = () => {
+    setScanInProgress(true);
+    setScanProgress(0);
+    
     scanNetwork({
       onStart: () => {
         setIsScanning(true);
@@ -53,16 +59,25 @@ export const ConnectionScreen = () => {
       },
       onProgress: (status) => {
         setServerStatus(status);
+        
+        // Extrair porcentagem se presente na mensagem
+        const percentMatch = status.match(/(\d+)%/);
+        if (percentMatch && percentMatch[1]) {
+          setScanProgress(parseInt(percentMatch[1], 10));
+        }
       },
       onSuccess: (ip) => {
         setServerIP(ip);
         setServerStatus(`Servidor encontrado: ${ip}`);
+        setScanInProgress(false);
       },
       onFailure: () => {
         setServerStatus('Nenhum servidor encontrado. Digite o IP manualmente.');
+        setScanInProgress(false);
       },
       onComplete: (found) => {
         setIsScanning(false);
+        setScanInProgress(false);
       }
     });
   };
@@ -83,14 +98,17 @@ export const ConnectionScreen = () => {
         />
         
         <TouchableOpacity 
-          style={styles.scanButton}
+          style={[
+            styles.scanButton,
+            (isConnecting || isScanning) ? styles.disabledButton : null
+          ]}
           onPress={handleScanNetwork}
           disabled={isConnecting || isScanning}
         >
           {isScanning ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Ionicons name="search" size={24} color="#fff" />
+            <Text style={styles.scanButtonText}>Buscar</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -100,7 +118,10 @@ export const ConnectionScreen = () => {
       )}
       
       <TouchableOpacity
-        style={styles.connectButton}
+        style={[
+          styles.connectButton,
+          (isConnecting || isScanning || !serverIP) ? styles.disabledButton : null
+        ]}
         onPress={connectToServer}
         disabled={isConnecting || isScanning || !serverIP}
       >
@@ -111,17 +132,28 @@ export const ConnectionScreen = () => {
         )}
       </TouchableOpacity>
       
-      {isScanning && (
+      {scanInProgress && (
         <View style={styles.progressContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <View style={styles.progressBarContainer}>
+            <View 
+              style={[
+                styles.progressBar, 
+                { width: `${scanProgress}%` }
+              ]} 
+            />
+          </View>
           <Text style={styles.progressText}>
-            Buscando servidores...
+            Buscando servidores... {scanProgress}%
           </Text>
           <Text style={styles.networkText}>
             Isso pode levar alguns instantes.
           </Text>
         </View>
       )}
+      
+      <Text style={styles.infoText}>
+        Esta versão suporta todos os comandos do servidor Python v1.0.
+      </Text>
       
       <Text style={styles.portText}>
         Porta: 10696
@@ -210,5 +242,31 @@ const styles = StyleSheet.create({
     bottom: 20,
     color: colors.textSecondary,
     fontSize: 12,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  scanButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  progressBarContainer: {
+    height: 8,
+    width: '100%',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  infoText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 32,
+    marginHorizontal: 20,
   },
 }); 
