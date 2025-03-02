@@ -31,6 +31,7 @@ export const ConnectionScreen = () => {
   const [scanProgress, setScanProgress] = useState(0);
   const [availableServers, setAvailableServers] = useState([]);
   const [serversModalVisible, setServersModalVisible] = useState(false);
+  const [scannedIPsCount, setScannedIPsCount] = useState(0);
   
   // Verificar IP salvo ao iniciar
   useEffect(() => {
@@ -55,21 +56,27 @@ export const ConnectionScreen = () => {
   const handleScanNetwork = () => {
     setScanInProgress(true);
     setScanProgress(0);
+    setScannedIPsCount(0);
     setAvailableServers([]);
-    setServersModalVisible(false); // Garante que o modal não está aberto
+    setServersModalVisible(false);
     
     scanNetwork({
       onStart: () => {
         setIsScanning(true);
         setServerStatus('Iniciando busca por servidores...');
       },
-      onProgress: (status) => {
+      onProgress: (status, progressPercent) => {
         setServerStatus(status);
         
-        // Atualizar a barra de progresso, se aplicável
-        const percentMatch = status.match(/(\d+)%/);
-        if (percentMatch && percentMatch[1]) {
-          setScanProgress(parseInt(percentMatch[1], 10));
+        // Usar o valor de progresso fornecido diretamente
+        if (progressPercent !== undefined) {
+          setScanProgress(progressPercent);
+        }
+        
+        // Incrementar contador de IPs verificados quando
+        // a mensagem indica verificação de IPs
+        if (status.includes('Escaneando')) {
+          setScannedIPsCount(prev => prev + 30); // Estimativa baseada no lote
         }
         
         // Se encontrou um servidor, atualizar a interface
@@ -195,7 +202,7 @@ export const ConnectionScreen = () => {
             Buscando servidores... {scanProgress}%
           </Text>
           <Text style={styles.networkText}>
-            Isso pode levar alguns instantes.
+            Verificados aproximadamente {scannedIPsCount} endereços IP
           </Text>
         </View>
       )}
