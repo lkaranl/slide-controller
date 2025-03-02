@@ -1,0 +1,58 @@
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos de ambiente
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Diretórios de dependências
+/node_modules
+/vendor
+/.pnp
+.pnp.js
+
+# Diretórios de build
+/build
+/dist
+/out
+/.next
+/.nuxt
+
+# Arquivos de log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Diretórios de cache
+.npm
+.eslintcache
+.stylelintcache
+.cache
+.parcel-cache
+
+# Arquivos de cobertura de testes
+/coverage
+/.nyc_output
+
+# IDEs e editores
+/.idea
+/.vscode
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# Arquivos temporários
+*.tmp
+*.temp
+.temp
+.tmp
+
+# Arquivos de configuração local
+*.local
