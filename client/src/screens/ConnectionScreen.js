@@ -5,7 +5,7 @@ import {
   TextInput, 
   TouchableOpacity, 
   StyleSheet,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../context/AppContext';
@@ -108,7 +108,7 @@ export const ConnectionScreen = () => {
           {isScanning ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.scanButtonText}>Buscar</Text>
+            <Text style={styles.scanButtonText}>🔍</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -156,7 +156,7 @@ export const ConnectionScreen = () => {
       </Text>
       
       <Text style={styles.portText}>
-        Porta: 10696
+         Desenvolvido por Karan Luciano
       </Text>
     </View>
   );
@@ -200,6 +200,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 8,
     marginLeft: 8,
+    paddingHorizontal: 0,
+    overflow: 'hidden',
   },
   connectButton: {
     width: '100%',
@@ -248,6 +250,7 @@ const styles = StyleSheet.create({
   },
   scanButtonText: {
     color: '#fff',
+    fontSize: 18,
     fontWeight: 'bold',
   },
   progressBarContainer: {
