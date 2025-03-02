@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,14 +9,24 @@ import {
   ScrollView,
   Linking,
   Switch,
-  Alert
+  Alert,
+  FlatList
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAppContext } from '../context/AppContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const Header = ({ title, subtitle }) => {
   const { theme, isDarkTheme, toggleTheme } = useTheme();
-  const { disconnectFromServer, connected, isScanning, setIsScanning } = useAppContext();
+  const { 
+    disconnectFromServer, 
+    connected, 
+    isScanning, 
+    setIsScanning,
+    serverIP,
+    setServerIP, 
+    connectToServer 
+  } = useAppContext();
   const [menuVisible, setMenuVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
@@ -26,6 +36,148 @@ export const Header = ({ title, subtitle }) => {
   const [followSystemTheme, setFollowSystemTheme] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [useServerTimer, setUseServerTimer] = useState(false);
+  
+  // Novos estados para o histórico de conexões
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [connectionHistory, setConnectionHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  // Carregar histórico ao iniciar
+  useEffect(() => {
+    loadConnectionHistory();
+  }, []);
+  
+  // Adicionar servidor ao histórico quando conectado
+  useEffect(() => {
+    if (connected && serverIP) {
+      addToHistory(serverIP);
+    }
+  }, [connected, serverIP]);
+  
+  // Função para carregar o histórico de conexões
+  const loadConnectionHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const historyJson = await AsyncStorage.getItem('connectionHistory');
+      
+      if (historyJson) {
+        // Converter o JSON em array e ordenar por lastConnected
+        const history = JSON.parse(historyJson);
+        history.sort((a, b) => b.lastConnected - a.lastConnected);
+        setConnectionHistory(history);
+      } else {
+        setConnectionHistory([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+  
+  // Função para adicionar um servidor ao histórico
+  const addToHistory = async (ip) => {
+    try {
+      // Primeiro, carregar o histórico existente
+      const historyJson = await AsyncStorage.getItem('connectionHistory');
+      let history = historyJson ? JSON.parse(historyJson) : [];
+      
+      // Verificar se o IP já existe no histórico
+      const existingIndex = history.findIndex(item => item.ip === ip);
+      
+      const now = new Date().getTime();
+      
+      if (existingIndex !== -1) {
+        // Atualizar o timestamp se já existe
+        history[existingIndex].lastConnected = now;
+        history[existingIndex].connectionCount = (history[existingIndex].connectionCount || 0) + 1;
+      } else {
+        // Adicionar novo registro se não existe
+        history.push({
+          ip,
+          firstConnected: now,
+          lastConnected: now,
+          connectionCount: 1
+        });
+      }
+      
+      // Limitar histórico a 10 itens
+      if (history.length > 10) {
+        history.sort((a, b) => b.lastConnected - a.lastConnected);
+        history = history.slice(0, 10);
+      }
+      
+      // Salvar histórico atualizado
+      await AsyncStorage.setItem('connectionHistory', JSON.stringify(history));
+      
+      // Atualizar o estado
+      setConnectionHistory(history);
+    } catch (error) {
+      console.error('Erro ao adicionar ao histórico:', error);
+    }
+  };
+  
+  // Função para remover um item do histórico
+  const removeFromHistory = async (ip) => {
+    try {
+      // Filtrar o item a ser removido
+      const updatedHistory = connectionHistory.filter(item => item.ip !== ip);
+      
+      // Salvar histórico atualizado
+      await AsyncStorage.setItem('connectionHistory', JSON.stringify(updatedHistory));
+      
+      // Atualizar o estado
+      setConnectionHistory(updatedHistory);
+    } catch (error) {
+      console.error('Erro ao remover do histórico:', error);
+    }
+  };
+  
+  // Função para limpar todo o histórico
+  const clearHistory = async () => {
+    try {
+      await AsyncStorage.removeItem('connectionHistory');
+      setConnectionHistory([]);
+    } catch (error) {
+      console.error('Erro ao limpar histórico:', error);
+    }
+  };
+  
+  // Função para confirmar e limpar o histórico
+  const confirmClearHistory = () => {
+    Alert.alert(
+      "Limpar Histórico",
+      "Tem certeza que deseja limpar todo o histórico de conexões?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Limpar", 
+          style: "destructive",
+          onPress: clearHistory
+        }
+      ]
+    );
+  };
+  
+  // Função para conectar a um servidor do histórico
+  const connectToHistoryServer = (ip) => {
+    setHistoryModalVisible(false);
+    setServerIP(ip);
+    connectToServer(ip);
+  };
+  
+  // Função para abrir o modal de histórico
+  const openHistoryModal = () => {
+    setMenuVisible(false);
+    loadConnectionHistory(); // Recarregar para ter os dados mais recentes
+    setHistoryModalVisible(true);
+  };
+  
+  // Formatação de data em formato legível
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  };
   
   // Abrir o modal "Sobre"
   const openAboutModal = () => {
@@ -187,15 +339,7 @@ export const Header = ({ title, subtitle }) => {
             {!connected && (
               <TouchableOpacity 
                 style={[styles.menuItem, {borderBottomColor: theme.divider}]}
-                onPress={() => {
-                  setMenuVisible(false);
-                  // Aqui você pode implementar um modal para mostrar histórico de servidores
-                  Alert.alert(
-                    "Recurso em Desenvolvimento",
-                    "O histórico de conexões será implementado em uma versão futura.",
-                    [{ text: "OK" }]
-                  );
-                }}
+                onPress={openHistoryModal}
                 activeOpacity={0.7}
               >
                 <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>📋</Text>
@@ -635,6 +779,156 @@ export const Header = ({ title, subtitle }) => {
                 marginTop: 16
               }}
               onPress={() => setSettingsModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>
+                Fechar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Adicionar este novo Modal para o Histórico de Conexões */}
+      <Modal
+        visible={historyModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setHistoryModalVisible(false)}
+      >
+        <View style={{flex: 1, backgroundColor: theme.modalBackground}}>
+          <View 
+            style={{
+              flex: 1, 
+              marginTop: 50,
+              backgroundColor: theme.cardBackground,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              borderTopWidth: 4,
+              borderTopColor: theme.primary,
+            }}
+          >
+            <Text style={{
+              fontSize: 22, 
+              fontWeight: 'bold', 
+              color: theme.primary,
+              textAlign: 'center',
+              marginBottom: 16
+            }}>
+              Histórico de Conexões
+            </Text>
+            
+            {isLoadingHistory ? (
+              <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                <Text style={{color: theme.textPrimary}}>Carregando histórico...</Text>
+              </View>
+            ) : connectionHistory.length === 0 ? (
+              <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                <Text style={{color: theme.textSecondary, textAlign: 'center'}}>
+                  Nenhum servidor no histórico.{'\n'}
+                  Conecte-se a um servidor para começar a construir seu histórico.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={connectionHistory}
+                keyExtractor={(item) => item.ip}
+                style={{flex: 1}}
+                renderItem={({item}) => (
+                  <View style={{
+                    flexDirection: 'row',
+                    padding: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.divider,
+                    alignItems: 'center'
+                  }}>
+                    <View style={{flex: 1}}>
+                      <Text style={{
+                        fontSize: 16, 
+                        fontWeight: 'bold',
+                        color: theme.textPrimary
+                      }}>
+                        {item.ip}
+                      </Text>
+                      <Text style={{
+                        fontSize: 12,
+                        color: theme.textSecondary,
+                        marginTop: 4
+                      }}>
+                        Última conexão: {formatDate(item.lastConnected)}
+                      </Text>
+                      <Text style={{
+                        fontSize: 12,
+                        color: theme.textSecondary
+                      }}>
+                        Conexões: {item.connectionCount || 1}
+                      </Text>
+                    </View>
+                    
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: theme.primary,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        borderRadius: 8,
+                        marginHorizontal: 8
+                      }}
+                      onPress={() => connectToHistoryServer(item.ip)}
+                    >
+                      <Text style={{color: 'white', fontWeight: 'bold'}}>
+                        Conectar
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: theme.error + '20',
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: theme.error
+                      }}
+                      onPress={() => removeFromHistory(item.ip)}
+                    >
+                      <Text style={{color: theme.error}}>
+                        Remover
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            )}
+            
+            {connectionHistory.length > 0 && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: theme.error + '20',
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  marginTop: 16,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: theme.error
+                }}
+                onPress={confirmClearHistory}
+              >
+                <Text style={{color: theme.error, fontWeight: 'bold'}}>
+                  Limpar Histórico
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity 
+              style={{
+                backgroundColor: theme.primary,
+                paddingVertical: 14,
+                borderRadius: 12,
+                alignItems: 'center'
+              }}
+              onPress={() => setHistoryModalVisible(false)}
               activeOpacity={0.8}
             >
               <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>
