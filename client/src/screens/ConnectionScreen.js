@@ -14,6 +14,7 @@ import { useAppContext } from '../context/AppContext';
 import { scanNetwork } from '../services/WebSocketService';
 import { colors } from '../styles/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../context/ThemeContext';
 
 export const ConnectionScreen = () => {
   const { 
@@ -34,6 +35,8 @@ export const ConnectionScreen = () => {
   const [scannedIPsCount, setScannedIPsCount] = useState(0);
   const [networkPrefix, setNetworkPrefix] = useState('');
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  
+  const { theme, isDarkTheme, toggleTheme } = useTheme();
   
   // Verificar IP salvo ao iniciar
   useEffect(() => {
@@ -131,8 +134,6 @@ export const ConnectionScreen = () => {
   
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Controle de Apresentações</Text>
-      
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -290,16 +291,9 @@ export const ConnectionScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 32,
-    textAlign: 'center',
   },
   inputContainer: {
     flexDirection: 'row',

@@ -10,9 +10,11 @@ import {
   ScrollView,
   TextInput,
   Modal,
-  Switch
+  Switch,
+  Image
 } from 'react-native';
 import { useAppContext } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 import { useVolumeButtons } from '../hooks/useVolumeButtons';
 import { colors } from '../styles/colors';
 
@@ -36,6 +38,8 @@ export const ControlScreen = () => {
     setUseServerTimer,
     useServerTimer
   } = useAppContext();
+  
+  const { theme, isDarkTheme, toggleTheme } = useTheme();
   
   // Estados locais
   const [advancedOptionsVisible, setAdvancedOptionsVisible] = useState(false);
@@ -94,26 +98,13 @@ export const ControlScreen = () => {
   };
   
   return (
-    <Animated.View style={[styles.container, { opacity: controlsOpacity }]}>
-      <View style={styles.header}>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.title}>Controle de Apresentações</Text>
-          <Text style={styles.subtitle}>Conectado a {serverIP}</Text>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.disconnectButton}
-          onPress={disconnectFromServer}
-        >
-          <Text style={styles.disconnectText}>Desconectar</Text>
-        </TouchableOpacity>
-      </View>
-      
+    <Animated.View style={[styles.container, { opacity: controlsOpacity, backgroundColor: theme.background }]}>
       {/* Temporizador */}
-      <View style={styles.timerContainer}>
-        <Text style={styles.timerLabel}>Temporizador</Text>
+      <View style={[styles.timerContainer, { backgroundColor: theme.cardBackground }]}>
+        <Text style={[styles.timerLabel, { color: theme.textPrimary }]}>Temporizador</Text>
         <Text style={[
           styles.timerValue, 
+          { color: theme.textPrimary },
           timerActive ? styles.timerActiveValue : null
         ]}>
           {timerValue}
@@ -122,7 +113,8 @@ export const ControlScreen = () => {
           <TouchableOpacity 
             style={[
               styles.timerButton, 
-              timerActive ? styles.timerStopButton : styles.timerStartButton
+              timerActive ? styles.timerStopButton : styles.timerStartButton,
+              { backgroundColor: timerActive ? theme.error : theme.primary }
             ]}
             onPress={timerActive ? stopTimer : startTimer}
           >
@@ -131,7 +123,7 @@ export const ControlScreen = () => {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.timerButton}
+            style={[styles.timerButton, { backgroundColor: theme.inactive }]}
             onPress={resetTimer}
           >
             <Text style={styles.timerButtonText}>Resetar</Text>
@@ -140,18 +132,18 @@ export const ControlScreen = () => {
         
         {/* Interruptor para escolher o lado do temporizador */}
         <View style={styles.timerModeContainer}>
-          <Text style={styles.timerModeLabel}>Local</Text>
+          <Text style={[styles.timerModeLabel, { color: theme.textSecondary }]}>Local</Text>
           <Switch
             value={useServerTimer}
             onValueChange={(value) => setUseServerTimer(value)}
-            trackColor={{ false: "#767577", true: colors.primary }}
+            trackColor={{ false: theme.inactive, true: theme.primary }}
             thumbColor={useServerTimer ? "#fff" : "#f4f3f4"}
           />
-          <Text style={styles.timerModeLabel}>Servidor</Text>
+          <Text style={[styles.timerModeLabel, { color: theme.textSecondary }]}>Servidor</Text>
         </View>
         
         {timerActive && (
-          <Text style={styles.timerHint}>
+          <Text style={[styles.timerHint, { color: theme.textSecondary }]}>
             {useServerTimer ? 'O tempo está sendo controlado pelo servidor' : 'O tempo está sendo controlado pelo app'}
           </Text>
         )}
@@ -161,30 +153,30 @@ export const ControlScreen = () => {
       <View style={styles.controlsContainer}>
         <View style={styles.mainControls}>
           <TouchableOpacity
-            style={styles.mainButton}
+            style={[styles.mainButton, { backgroundColor: theme.cardBackground }]}
             onPress={() => handleCommand('prev')}
             activeOpacity={0.7}
           >
-            <Text style={styles.buttonIcon}>◀</Text>
-            <Text style={styles.mainButtonText}>ANTERIOR</Text>
+            <Text style={[styles.buttonIcon, { color: theme.primary }]}>◀</Text>
+            <Text style={[styles.mainButtonText, { color: theme.primary }]}>ANTERIOR</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.mainButton, styles.nextButton]}
+            style={[styles.mainButton, styles.nextButton, { backgroundColor: theme.primary }]}
             onPress={() => handleCommand('next')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.buttonIcon, styles.nextButtonIcon]}>▶</Text>
-            <Text style={[styles.mainButtonText, styles.nextButtonText]}>PRÓXIMO</Text>
+            <Text style={[styles.buttonIcon, styles.nextButtonIcon, { color: theme.buttonText }]}>▶</Text>
+            <Text style={[styles.mainButtonText, styles.nextButtonText, { color: theme.buttonText }]}>PRÓXIMO</Text>
           </TouchableOpacity>
         </View>
         
         {/* Botão para opções avançadas */}
         <TouchableOpacity
-          style={styles.advancedButton}
+          style={[styles.advancedButton, { backgroundColor: theme.cardBackground }]}
           onPress={() => setAdvancedOptionsVisible(true)}
         >
-          <Text style={styles.advancedButtonText}>Controles Avançados</Text>
+          <Text style={[styles.advancedButtonText, { color: theme.textPrimary }]}>Controles Avançados</Text>
         </TouchableOpacity>
       </View>
       
@@ -195,47 +187,47 @@ export const ControlScreen = () => {
         animationType="fade"
         onRequestClose={() => setAdvancedOptionsVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Controles de Apresentação</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.modalBackground }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.modalContent }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>Controles de Apresentação</Text>
             
             <View style={styles.modalButtons}>
               <TouchableOpacity 
-                style={styles.modalButton}
+                style={[styles.modalButton, { backgroundColor: theme.primary }]}
                 onPress={() => {
                   startPresentation();
                   setAdvancedOptionsVisible(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>Iniciar Apresentação</Text>
+                <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Iniciar Apresentação</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.modalButton}
+                style={[styles.modalButton, { backgroundColor: theme.primary }]}
                 onPress={() => {
                   endPresentation();
                   setAdvancedOptionsVisible(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>Finalizar Apresentação</Text>
+                <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Finalizar Apresentação</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.modalButton}
+                style={[styles.modalButton, { backgroundColor: theme.primary }]}
                 onPress={() => {
                   blankScreen();
                   setAdvancedOptionsVisible(false);
                 }}
               >
-                <Text style={styles.modalButtonText}>Alternar Tela Preta</Text>
+                <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Alternar Tela Preta</Text>
               </TouchableOpacity>
             </View>
             
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: theme.inverseButton }]}
               onPress={() => setAdvancedOptionsVisible(false)}
             >
-              <Text style={styles.closeButtonText}>Fechar</Text>
+              <Text style={[styles.closeButtonText, { color: theme.inverseButtonText }]}>Fechar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -247,40 +239,9 @@ export const ControlScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     padding: 16,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  disconnectButton: {
-    backgroundColor: colors.error,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  disconnectText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
   timerContainer: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
@@ -294,13 +255,11 @@ const styles = StyleSheet.create({
   timerLabel: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.textPrimary,
     marginBottom: 8,
   },
   timerValue: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: colors.textPrimary,
     marginBottom: 16,
     fontFamily: 'monospace',
   },
@@ -310,7 +269,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   timerButton: {
-    backgroundColor: '#e0e0e0',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -318,14 +276,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timerStartButton: {
-    backgroundColor: colors.primary,
+    // Cor definida dinamicamente
   },
   timerStopButton: {
-    backgroundColor: colors.error,
+    // Cor definida dinamicamente
   },
   timerButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  timerActiveValue: {
+    color: '#4caf50', // Mantemos verde para ambos os temas
   },
   controlsContainer: {
     marginBottom: 20,
@@ -338,7 +299,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainButton: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 24,
     width: '48%',
@@ -354,32 +314,28 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     fontSize: 36,
-    color: colors.primary,
     marginBottom: 16,
   },
   mainButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primary,
   },
   nextButton: {
-    backgroundColor: colors.primary,
+    // Cor definida dinamicamente
   },
   nextButtonIcon: {
-    color: '#fff',
+    // Cor definida dinamicamente
   },
   nextButtonText: {
-    color: '#fff',
+    // Cor definida dinamicamente
   },
   advancedButton: {
-    backgroundColor: '#f0f0f0',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 16,
   },
   advancedButtonText: {
-    color: colors.textPrimary,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -391,24 +347,20 @@ const styles = StyleSheet.create({
   },
   timerModeLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginHorizontal: 6,
   },
   timerHint: {
     fontSize: 12,
-    color: colors.textSecondary,
     marginTop: 6,
     fontStyle: 'italic',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     width: '90%',
@@ -417,7 +369,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primary,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -425,7 +376,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalButton: {
-    backgroundColor: colors.primary,
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -433,18 +383,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonText: {
-    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
   closeButton: {
-    backgroundColor: '#e0e0e0',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
   closeButtonText: {
-    color: colors.textPrimary,
     fontWeight: 'bold',
     fontSize: 16,
   },

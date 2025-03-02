@@ -20,7 +20,7 @@ export const AppProvider = ({ children }) => {
   const [timerValue, setTimerValue] = useState('00:00:00');
   const [serverMessages, setServerMessages] = useState([]);
   const [serverInfo, setServerInfo] = useState('Servidor Python');
-  const [useServerTimer, setUseServerTimer] = useState(true);
+  const [useServerTimer, setUseServerTimer] = useState(false);
   
   // Referência para o WebSocket
   const socketRef = useRef(null);
