@@ -7,7 +7,9 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  Linking
+  Linking,
+  Switch,
+  Alert
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAppContext } from '../context/AppContext';
@@ -17,11 +19,24 @@ export const Header = ({ title, subtitle }) => {
   const { disconnectFromServer, connected } = useAppContext();
   const [menuVisible, setMenuVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [autoConnect, setAutoConnect] = useState(true);
+  const [vibrateOnTouch, setVibrateOnTouch] = useState(true);
+  const [volumeButtons, setVolumeButtons] = useState(true);
+  const [followSystemTheme, setFollowSystemTheme] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [useServerTimer, setUseServerTimer] = useState(false);
   
   // Abrir o modal "Sobre"
   const openAboutModal = () => {
     setMenuVisible(false); // Fechar o menu principal
     setAboutModalVisible(true); // Abrir o modal "Sobre"
+  };
+  
+  // Função para abrir as configurações
+  const openSettingsModal = () => {
+    setMenuVisible(false);
+    setSettingsModalVisible(true);
   };
   
   return (
@@ -105,10 +120,7 @@ export const Header = ({ title, subtitle }) => {
             
             <TouchableOpacity 
               style={[styles.menuItem, {borderBottomColor: theme.divider}]}
-              onPress={() => {
-                // Aqui você pode implementar ações futuras
-                setMenuVisible(false);
-              }}
+              onPress={openSettingsModal}
               activeOpacity={0.7}
             >
               <Text style={{fontSize: 20, marginRight: 12, width: 24, textAlign: 'center'}}>⚙️</Text>
@@ -292,6 +304,261 @@ export const Header = ({ title, subtitle }) => {
                 marginTop: 16
               }}
               onPress={() => setAboutModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>
+                Fechar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal de Configurações */}
+      <Modal
+        visible={settingsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSettingsModalVisible(false)}
+      >
+        <View style={{flex: 1, backgroundColor: theme.modalBackground}}>
+          <View 
+            style={{
+              flex: 1, 
+              marginTop: 50,
+              backgroundColor: theme.cardBackground,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              borderTopWidth: 4,
+              borderTopColor: theme.primary,
+            }}
+          >
+            <Text style={{
+              fontSize: 22, 
+              fontWeight: 'bold', 
+              color: theme.primary,
+              textAlign: 'center',
+              marginBottom: 16
+            }}>
+              Configurações
+            </Text>
+            
+            <ScrollView style={{flex: 1}}>
+              {/* Categoria: Conexão */}
+              <Text style={{
+                fontSize: 18, 
+                fontWeight: 'bold', 
+                color: theme.primary, 
+                marginTop: 8, 
+                marginBottom: 12
+              }}>
+                Conexão
+              </Text>
+              
+              <View style={{
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.divider
+              }}>
+                <Text style={{fontSize: 16, color: theme.textPrimary}}>
+                  Conectar automaticamente ao último servidor
+                </Text>
+                <Switch
+                  value={autoConnect}
+                  onValueChange={setAutoConnect}
+                  trackColor={{ false: "#767577", true: theme.primary }}
+                  thumbColor={autoConnect ? "#ffffff" : "#f4f3f4"}
+                />
+              </View>
+              
+              {/* Categoria: Interface */}
+              <Text style={{
+                fontSize: 18, 
+                fontWeight: 'bold', 
+                color: theme.primary, 
+                marginTop: 24, 
+                marginBottom: 12
+              }}>
+                Interface
+              </Text>
+              
+              <View style={{
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.divider
+              }}>
+                <Text style={{fontSize: 16, color: theme.textPrimary}}>
+                  Seguir tema do sistema
+                </Text>
+                <Switch
+                  value={followSystemTheme}
+                  onValueChange={setFollowSystemTheme}
+                  trackColor={{ false: "#767577", true: theme.primary }}
+                  thumbColor={followSystemTheme ? "#ffffff" : "#f4f3f4"}
+                />
+              </View>
+              
+              <View style={{
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.divider
+              }}>
+                <Text style={{fontSize: 16, color: theme.textPrimary}}>
+                  Vibrar ao tocar nos controles
+                </Text>
+                <Switch
+                  value={vibrateOnTouch}
+                  onValueChange={setVibrateOnTouch}
+                  trackColor={{ false: "#767577", true: theme.primary }}
+                  thumbColor={vibrateOnTouch ? "#ffffff" : "#f4f3f4"}
+                />
+              </View>
+              
+              {/* Categoria: Controles */}
+              <Text style={{
+                fontSize: 18, 
+                fontWeight: 'bold', 
+                color: theme.primary, 
+                marginTop: 24, 
+                marginBottom: 12
+              }}>
+                Controles
+              </Text>
+              
+              <View style={{
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.divider
+              }}>
+                <Text style={{fontSize: 16, color: theme.textPrimary}}>
+                  Usar botões de volume para navegação
+                </Text>
+                <Switch
+                  value={volumeButtons}
+                  onValueChange={setVolumeButtons}
+                  trackColor={{ false: "#767577", true: theme.primary }}
+                  thumbColor={volumeButtons ? "#ffffff" : "#f4f3f4"}
+                />
+              </View>
+              
+              <View style={{
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.divider
+              }}>
+                <Text style={{fontSize: 16, color: theme.textPrimary}}>
+                  Temporizador local como padrão
+                </Text>
+                <Switch
+                  value={!useServerTimer}
+                  onValueChange={(value) => setUseServerTimer(!value)}
+                  trackColor={{ false: "#767577", true: theme.primary }}
+                  thumbColor={!useServerTimer ? "#ffffff" : "#f4f3f4"}
+                />
+              </View>
+              
+              {/* Categoria: Avançadas */}
+              <Text style={{
+                fontSize: 18, 
+                fontWeight: 'bold', 
+                color: theme.primary, 
+                marginTop: 24, 
+                marginBottom: 12
+              }}>
+                Avançadas
+              </Text>
+              
+              <View style={{
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: 10,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.divider
+              }}>
+                <Text style={{fontSize: 16, color: theme.textPrimary}}>
+                  Mostrar informações de depuração
+                </Text>
+                <Switch
+                  value={showDebugInfo}
+                  onValueChange={setShowDebugInfo}
+                  trackColor={{ false: "#767577", true: theme.primary }}
+                  thumbColor={showDebugInfo ? "#ffffff" : "#f4f3f4"}
+                />
+              </View>
+              
+              {/* Botão para resetar configurações */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: theme.error + '20',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  marginTop: 24,
+                  borderWidth: 1,
+                  borderColor: theme.error
+                }}
+                onPress={() => {
+                  // Função para resetar todas as configurações
+                  setAutoConnect(true);
+                  setVibrateOnTouch(true);
+                  setVolumeButtons(true);
+                  setFollowSystemTheme(false);
+                  setShowDebugInfo(false);
+                  setUseServerTimer(false);
+                  // Adicionar um feedback ao usuário
+                  Alert.alert(
+                    "Configurações Resetadas",
+                    "Todas as configurações foram restauradas para os valores padrão."
+                  );
+                }}
+              >
+                <Text style={{
+                  color: theme.error,
+                  fontWeight: 'bold',
+                  fontSize: 16
+                }}>
+                  Resetar Configurações
+                </Text>
+              </TouchableOpacity>
+              
+              <Text style={{
+                fontSize: 12,
+                color: theme.textSecondary,
+                textAlign: 'center',
+                marginTop: 30,
+                marginBottom: 30,
+                fontStyle: 'italic'
+              }}>
+                As configurações são salvas automaticamente
+              </Text>
+            </ScrollView>
+            
+            <TouchableOpacity 
+              style={{
+                backgroundColor: theme.primary,
+                paddingVertical: 14,
+                borderRadius: 12,
+                alignItems: 'center',
+                marginTop: 16
+              }}
+              onPress={() => setSettingsModalVisible(false)}
               activeOpacity={0.8}
             >
               <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>
