@@ -96,8 +96,10 @@ export const AppProvider = ({ children }) => {
   };
   
   // Métodos
-  const handleConnectToServer = () => {
-    if (!serverIP) {
+  const handleConnectToServer = (ipOverride) => {
+    const ipToConnect = ipOverride || serverIP;
+    
+    if (!ipToConnect) {
       ToastAndroid.show('Digite o IP do servidor', ToastAndroid.SHORT);
       return;
     }
@@ -105,12 +107,17 @@ export const AppProvider = ({ children }) => {
     setIsConnecting(true);
     setServerStatus('Conectando...');
     
-    connectToServer(serverIP, {
+    // Se estamos usando um IP override, atualize o estado
+    if (ipOverride && ipOverride !== serverIP) {
+      setServerIP(ipOverride);
+    }
+    
+    connectToServer(ipToConnect, {
       onOpen: () => {
         setConnected(true);
         setIsConnecting(false);
         setServerStatus('Conectado');
-        setServerMessages([`Conectado ao servidor ${serverIP}`]);
+        setServerMessages([`Conectado ao servidor ${ipToConnect}`]);
         ToastAndroid.show('Conectado ao servidor', ToastAndroid.SHORT);
       },
       onClose: () => {

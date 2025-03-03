@@ -125,6 +125,10 @@ export const ConnectionScreen = () => {
   const selectServer = (ip) => {
     setServerIP(ip);
     setServersModalVisible(false);
+    // Conectar automaticamente ao servidor selecionado
+    setTimeout(() => {
+      connectToServer();
+    }, 100);
   };
   
   // Conectar ao servidor escolhido
@@ -245,7 +249,7 @@ export const ConnectionScreen = () => {
                   onPress={() => selectServer(item)}
                 >
                   <Text style={styles.serverItemIp}>{item}</Text>
-                  <Text style={styles.serverItemAction}>Selecionar</Text>
+                  <Text style={styles.serverItemAction}>Conectar</Text>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
