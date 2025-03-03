@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   Linking,
   Switch,
   Alert,
-  FlatList
+  FlatList,
+  TextInput
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAppContext } from '../context/AppContext';
@@ -41,6 +42,12 @@ export const Header = ({ title, subtitle }) => {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [connectionHistory, setConnectionHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  // Adicionar estes estados no componente Header
+  const [editNameModalVisible, setEditNameModalVisible] = useState(false);
+  const [currentEditIP, setCurrentEditIP] = useState('');
+  const [editNameText, setEditNameText] = useState('');
+  const textInputRef = useRef(null);
   
   // Carregar histórico ao iniciar
   useEffect(() => {
@@ -76,7 +83,7 @@ export const Header = ({ title, subtitle }) => {
   };
   
   // Função para adicionar um servidor ao histórico
-  const addToHistory = async (ip) => {
+  const addToHistory = async (ip, hostname = '') => {
     try {
       // Primeiro, carregar o histórico existente
       const historyJson = await AsyncStorage.getItem('connectionHistory');
@@ -91,10 +98,17 @@ export const Header = ({ title, subtitle }) => {
         // Atualizar o timestamp se já existe
         history[existingIndex].lastConnected = now;
         history[existingIndex].connectionCount = (history[existingIndex].connectionCount || 0) + 1;
+        
+        // Atualizar hostname apenas se não estiver vazio e diferente do atual
+        if (hostname && (!history[existingIndex].hostname || hostname !== history[existingIndex].hostname)) {
+          history[existingIndex].hostname = hostname;
+        }
       } else {
         // Adicionar novo registro se não existe
         history.push({
           ip,
+          hostname: hostname || '',
+          friendlyName: '',
           firstConnected: now,
           lastConnected: now,
           connectionCount: 1
@@ -190,6 +204,84 @@ export const Header = ({ title, subtitle }) => {
     setMenuVisible(false);
     setSettingsModalVisible(true);
   };
+  
+  // Modificar a função editFriendlyName
+  const editFriendlyName = (ip) => {
+    // Encontrar o item no histórico
+    const item = connectionHistory.find(item => item.ip === ip);
+    
+    if (!item) return;
+    
+    // Preparar modal de edição
+    setCurrentEditIP(ip);
+    setEditNameText(item.friendlyName || '');
+    setEditNameModalVisible(true);
+    
+    // Focar o input quando o modal abrir
+    setTimeout(() => {
+      if (textInputRef.current) {
+        textInputRef.current.focus();
+      }
+    }, 100);
+  };
+  
+  // Função para salvar o nome amigável
+  const saveFriendlyName = async () => {
+    if (!currentEditIP) return;
+    
+    try {
+      // Atualizar o nome amigável no histórico
+      const updatedHistory = connectionHistory.map(h => {
+        if (h.ip === currentEditIP) {
+          return { ...h, friendlyName: editNameText };
+        }
+        return h;
+      });
+      
+      await AsyncStorage.setItem('connectionHistory', JSON.stringify(updatedHistory));
+      setConnectionHistory(updatedHistory);
+      setEditNameModalVisible(false);
+    } catch (error) {
+      console.error('Erro ao salvar nome amigável:', error);
+    }
+  };
+  
+  // Função para tentar descobrir o hostname do servidor
+  const fetchHostname = async (ip) => {
+    try {
+      // Verificar primeiro se o servidor tem uma API específica para isso
+      // Supondo que o servidor tenha um endpoint para informações
+      const response = await fetch(`http://${ip}:8000/info`, { 
+        timeout: 2000 
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.hostname) {
+          return data.hostname;
+        }
+      }
+      
+      // Se não conseguiu, retorna vazio
+      return '';
+    } catch (error) {
+      console.log('Não foi possível obter o hostname:', error);
+      return '';
+    }
+  };
+  
+  // Atualizar o useEffect que adiciona ao histórico
+  useEffect(() => {
+    if (connected && serverIP) {
+      // Tentar obter o hostname quando conectar
+      const getHostname = async () => {
+        const hostname = await fetchHostname(serverIP);
+        addToHistory(serverIP, hostname);
+      };
+      
+      getHostname();
+    }
+  }, [connected, serverIP]);
   
   return (
     <View style={[styles.header, { 
@@ -843,14 +935,25 @@ export const Header = ({ title, subtitle }) => {
                     borderBottomColor: theme.divider,
                     alignItems: 'center'
                   }}>
-                    <View style={{flex: 1}}>
+                    <View style={{flex: 1, marginRight: 8}}>
                       <Text style={{
                         fontSize: 16, 
                         fontWeight: 'bold',
                         color: theme.textPrimary
                       }}>
-                        {item.ip}
+                        {item.friendlyName || item.hostname || item.ip}
                       </Text>
+                      
+                      {/* Mostrar IP se tiver um nome exibido acima */}
+                      {(item.friendlyName || item.hostname) && (
+                        <Text style={{
+                          fontSize: 13,
+                          color: theme.textSecondary
+                        }}>
+                          {item.ip}
+                        </Text>
+                      )}
+                      
                       <Text style={{
                         fontSize: 12,
                         color: theme.textSecondary,
@@ -866,13 +969,27 @@ export const Header = ({ title, subtitle }) => {
                       </Text>
                     </View>
                     
+                    {/* Botão para editar nome amigável */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: theme.accent + '30',
+                        paddingVertical: 8,
+                        paddingHorizontal: 8,
+                        borderRadius: 8,
+                        marginRight: 4
+                      }}
+                      onPress={() => editFriendlyName(item.ip)}
+                    >
+                      <Text style={{fontSize: 16}}>✏️</Text>
+                    </TouchableOpacity>
+                    
                     <TouchableOpacity
                       style={{
                         backgroundColor: theme.primary,
                         paddingVertical: 8,
                         paddingHorizontal: 12,
                         borderRadius: 8,
-                        marginHorizontal: 8
+                        marginHorizontal: 4
                       }}
                       onPress={() => connectToHistoryServer(item.ip)}
                     >
@@ -935,6 +1052,100 @@ export const Header = ({ title, subtitle }) => {
                 Fechar
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Adicionar este Modal abaixo dos outros modais */}
+      <Modal
+        visible={editNameModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setEditNameModalVisible(false)}
+      >
+        <View style={{
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          backgroundColor: theme.modalBackground
+        }}>
+          <View style={{
+            width: '80%',
+            backgroundColor: theme.cardBackground,
+            borderRadius: 16,
+            padding: 20,
+            elevation: 5
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: theme.primary,
+              marginBottom: 16,
+              textAlign: 'center'
+            }}>
+              Nome para o Servidor
+            </Text>
+            
+            <TextInput
+              ref={textInputRef}
+              style={{
+                backgroundColor: theme.inputBackground,
+                borderWidth: 1,
+                borderColor: theme.inputBorder,
+                borderRadius: 8,
+                padding: 12,
+                fontSize: 16,
+                color: theme.textPrimary,
+                marginBottom: 20
+              }}
+              value={editNameText}
+              onChangeText={setEditNameText}
+              placeholder="Digite um nome amigável"
+              placeholderTextColor={theme.textSecondary}
+            />
+            
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between'
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: theme.inactive,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  marginRight: 8,
+                  alignItems: 'center'
+                }}
+                onPress={() => setEditNameModalVisible(false)}
+              >
+                <Text style={{
+                  color: theme.textPrimary,
+                  fontWeight: 'bold'
+                }}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: theme.primary,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  marginLeft: 8,
+                  alignItems: 'center'
+                }}
+                onPress={saveFriendlyName}
+              >
+                <Text style={{
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  Salvar
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
