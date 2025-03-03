@@ -15,6 +15,7 @@ import { scanNetwork } from '../services/WebSocketService';
 import { colors } from '../styles/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
+import { guessLocalNetwork, getCurrentNetworkInfo } from '../utils/NetworkUtils';
 
 export const ConnectionScreen = () => {
   const { 
@@ -35,6 +36,7 @@ export const ConnectionScreen = () => {
   const [scannedIPsCount, setScannedIPsCount] = useState(0);
   const [networkPrefix, setNetworkPrefix] = useState('');
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [networkInfo, setNetworkInfo] = useState(null);
   
   const { theme, isDarkTheme, toggleTheme } = useTheme();
   
@@ -131,6 +133,19 @@ export const ConnectionScreen = () => {
       connectToServer();
     }
   };
+  
+  useEffect(() => {
+    const getNetworkInfo = async () => {
+      const info = await getCurrentNetworkInfo();
+      setNetworkInfo(info);
+    };
+    
+    getNetworkInfo();
+    
+    // Atualizar quando a tela for focada
+    const interval = setInterval(getNetworkInfo, 10000);
+    return () => clearInterval(interval);
+  }, []);
   
   return (
     <View style={styles.container}>
@@ -284,6 +299,15 @@ export const ConnectionScreen = () => {
           {showAdvancedOptions ? 'Ocultar opções avançadas' : 'Opções avançadas'}
         </Text>
       </TouchableOpacity>
+      
+      {networkInfo && networkInfo.isConnected && (
+        <Text style={styles.networkInfoText}>
+          Rede atual: {networkInfo.type === 'wifi' ? 'Wi-Fi' : networkInfo.type}
+          {networkInfo.details && networkInfo.details.ipAddress && (
+            ` (IP: ${networkInfo.details.ipAddress})`
+          )}
+        </Text>
+      )}
     </View>
   );
 };
@@ -496,5 +520,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  networkInfoText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginTop: 16,
+    textAlign: 'center',
   },
 }); 

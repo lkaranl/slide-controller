@@ -1,5 +1,6 @@
 import { w3cwebsocket as WebSocket } from 'websocket';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { guessLocalNetwork } from '../utils/NetworkUtils';
 
 // Porta fixa do servidor - sempre 10696
 export const SERVER_PORT = 10696;
@@ -152,6 +153,11 @@ export const scanNetwork = async (callbacks) => {
   let scannedIPs = 0;
   
   try {
+    // Detectar rede local primeiro
+    const detectedNetwork = await guessLocalNetwork();
+    
+    if (onProgress) onProgress(`Rede detectada: ${detectedNetwork}.*`, 5);
+    
     // Verificar último IP usado primeiro (rápido)
     const lastIP = await AsyncStorage.getItem('lastServerIP');
     let networkPrefix = '';
@@ -179,9 +185,10 @@ export const scanNetwork = async (callbacks) => {
     
     // Tentar identificar a rede local atual
     if (!networkPrefix) {
-      // Em aplicações mobile não temos acesso direto às informações de rede
-      // Vamos usar apenas redes mais comuns se não tivermos o último IP
-      networkPrefix = '192.168.1'; // Rede mais comum em residências
+      // Usar a rede detectada pelo NetInfo em vez do padrão fixo
+      networkPrefix = detectedNetwork;
+      
+      if (onProgress) onProgress(`Usando rede detectada: ${networkPrefix}.*`, 5);
     }
     
     if (onProgress) onProgress(`Escaneando a rede ${networkPrefix}.*`, 0);
