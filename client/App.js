@@ -9,13 +9,13 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
 const AppContent = () => {
   const { connected, serverIP } = useAppContext();
-  const { theme, isDarkTheme } = useTheme();
+  const { theme } = useTheme();
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar 
         backgroundColor={theme.primary} 
-        barStyle={isDarkTheme ? "light-content" : "dark-content"} 
+        barStyle="light-content"
       />
       
       {/* Header fixo comum */}
