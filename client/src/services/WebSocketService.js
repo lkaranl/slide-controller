@@ -1,6 +1,7 @@
 import { w3cwebsocket as WebSocket } from 'websocket';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { guessLocalNetwork } from '../utils/NetworkUtils';
+import { Alert } from 'react-native';
 
 // Porta fixa do servidor - sempre 10696
 export const SERVER_PORT = 10696;
@@ -32,7 +33,15 @@ export const connectToServer = (serverIP, callbacks, socketRef) => {
     };
     
     socket.onerror = (error) => {
-      console.error('Erro na conexão:', error);
+      console.error('Erro na conexão detalhado:', JSON.stringify(error));
+      // Tentar mostrar um alerta mais informativo
+      Alert.alert(
+        'Erro de Conexão',
+        `Não foi possível conectar ao servidor ${serverIP}. Verifique se:\n` +
+        '- O servidor está rodando\n' +
+        '- Telefone e servidor estão na mesma rede\n' +
+        '- A porta 10696 está liberada no firewall'
+      );
       if (callbacks.onError) callbacks.onError(error);
     };
     

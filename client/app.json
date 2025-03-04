@@ -36,6 +36,9 @@
       "eas": {
         "projectId": "b36cd926-4b23-4b1d-a4fc-40daa17536d1"
       }
-    }
+    },
+    "plugins": [
+      "./plugins/withAndroidPermissions"
+    ]
   }
 }

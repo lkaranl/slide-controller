@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Alert,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../context/AppContext';
@@ -16,6 +18,8 @@ import { colors } from '../styles/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { guessLocalNetwork, getCurrentNetworkInfo } from '../utils/NetworkUtils';
+import * as Location from 'expo-location';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 export const ConnectionScreen = () => {
   const { 
@@ -60,17 +64,33 @@ export const ConnectionScreen = () => {
   }, []);
   
   // Scanner de rede modificado
-  const handleScanNetwork = () => {
-    setScanInProgress(true);
-    setScanProgress(0);
-    setScannedIPsCount(0);
+  const handleScanNetwork = async () => {
+    // Verificar permissões antes de escanear
+    const hasPermissions = await checkAndRequestPermissions();
+    
+    if (!hasPermissions) {
+      return;
+    }
+    
+    // Limpar estados anteriores e preparar para novo scan
+    setServerStatus('Preparando escaneamento...');
     setAvailableServers([]);
     setServersModalVisible(false);
+    setScannedIPsCount(0);
+    setScanProgress(0);
+    
+    // Ativar apenas um indicador de loading principal
+    setIsScanning(true);
+    
+    // Mostrar barra de progresso somente APÓS iniciar o scan
+    // Isso evita que o indicador apareça duas vezes
+    setScanInProgress(false);
     
     scanNetwork({
       onStart: () => {
-        setIsScanning(true);
         setServerStatus('Iniciando busca por servidores...');
+        // Ativar a barra de progresso somente quando o scan realmente iniciar
+        setTimeout(() => setScanInProgress(true), 300);
       },
       onProgress: (status, progressPercent) => {
         setServerStatus(status);
@@ -119,6 +139,51 @@ export const ConnectionScreen = () => {
         }
       }
     });
+  };
+  
+  // Função para verificar e solicitar permissões (apenas Android)
+  const checkAndRequestPermissions = async () => {
+    try {
+      // Verificar permissão de localização (necessário para Wi-Fi em Android)
+      const { status: locationStatus } = await Location.getForegroundPermissionsAsync();
+      
+      if (locationStatus === 'granted') {
+        return true;
+      }
+      
+      // Se não tem permissão, solicitar
+      const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+      
+      if (newStatus === 'granted') {
+        return true;
+      }
+      
+      // Se o usuário negou, mostrar explicação e oferecer redirecionamento para configurações
+      Alert.alert(
+        'Permissão necessária',
+        'Para escanear a rede Wi-Fi, o aplicativo precisa de acesso à localização do dispositivo.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Abrir Configurações', 
+            onPress: openAppSettings 
+          }
+        ]
+      );
+      
+      return false;
+    } catch (error) {
+      console.error('Erro ao verificar permissões:', error);
+      return false;
+    }
+  };
+  
+  // Função simplificada para abrir configurações do aplicativo (apenas Android)
+  const openAppSettings = () => {
+    IntentLauncher.startActivityAsync(
+      IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
+      { data: 'package:com.lnarakl.slidecontroller' }  // Use o mesmo package do app.json
+    );
   };
   
   // Escolher servidor da lista
@@ -172,7 +237,7 @@ export const ConnectionScreen = () => {
           onPress={handleScanNetwork}
           disabled={isConnecting || isScanning}
         >
-          {isScanning ? (
+          {isScanning && !scanInProgress ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <Text style={styles.scanButtonText}>🔍</Text>
@@ -283,7 +348,7 @@ export const ConnectionScreen = () => {
           <Text style={styles.advancedLabel}>Prefixo de rede (opcional):</Text>
           <TextInput
             style={styles.advancedInput}
-            placeholder="Ex: 192.168.1"
+            placeholder="Ex: 24"
             value={networkPrefix}
             onChangeText={setNetworkPrefix}
             keyboardType="decimal-pad"
