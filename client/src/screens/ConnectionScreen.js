@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -6,22 +6,28 @@ import {
   TouchableOpacity, 
   StyleSheet,
   ActivityIndicator,
-  FlatList,
-  Modal,
+  ScrollView,
   Alert,
-  Linking,
+  Animated,
+  Keyboard,
+  Modal,
+  FlatList,
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAppContext } from '../context/AppContext';
 import { scanNetwork } from '../services/WebSocketService';
-import { colors } from '../styles/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
-import { guessLocalNetwork, getCurrentNetworkInfo } from '../utils/NetworkUtils';
+import { getCurrentNetworkInfo } from '../utils/NetworkUtils';
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
 
+const { width } = Dimensions.get('window');
+
 export const ConnectionScreen = () => {
+  // Context e hooks
   const { 
     serverIP, 
     setServerIP, 
@@ -33,132 +39,84 @@ export const ConnectionScreen = () => {
     setServerStatus
   } = useAppContext();
   
+  const { theme, isDarkTheme } = useTheme();
+  
+  // Estados
   const [scanInProgress, setScanInProgress] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [availableServers, setAvailableServers] = useState([]);
-  const [serversModalVisible, setServersModalVisible] = useState(false);
   const [scannedIPsCount, setScannedIPsCount] = useState(0);
-  const [networkPrefix, setNetworkPrefix] = useState('');
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [recentServers, setRecentServers] = useState([]);
   const [networkInfo, setNetworkInfo] = useState(null);
+  const [inputFocused, setInputFocused] = useState(false);
   
-  const { theme, isDarkTheme, toggleTheme } = useTheme();
+  // Animações
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
   
-  // Verificar IP salvo ao iniciar
+  // Carregar histórico de conexões recentes
   useEffect(() => {
-    const checkSavedIP = async () => {
-      try {
-        const savedIP = await AsyncStorage.getItem('lastServerIP');
-        if (savedIP) {
-          setServerIP(savedIP);
-          setServerStatus(`IP anterior: ${savedIP}`);
-        } else {
-          setServerStatus('Digite o IP do servidor ou escaneie a rede');
-        }
-      } catch (error) {
-        console.error('Erro ao obter IP salvo:', error);
-      }
-    };
+    loadRecentServers();
+    fadeIn();
+    checkNetworkInfo();
     
-    checkSavedIP();
+    const interval = setInterval(checkNetworkInfo, 15000);
+    return () => clearInterval(interval);
   }, []);
   
-  // Scanner de rede modificado
-  const handleScanNetwork = async () => {
-    // Verificar permissões antes de escanear
-    const hasPermissions = await checkAndRequestPermissions();
-    
-    if (!hasPermissions) {
-      return;
-    }
-    
-    // Limpar estados anteriores e preparar para novo scan
-    setServerStatus('Preparando escaneamento...');
-    setAvailableServers([]);
-    setServersModalVisible(false);
-    setScannedIPsCount(0);
-    setScanProgress(0);
-    
-    // Ativar apenas um indicador de loading principal
-    setIsScanning(true);
-    
-    // Mostrar barra de progresso somente APÓS iniciar o scan
-    // Isso evita que o indicador apareça duas vezes
-    setScanInProgress(false);
-    
-    scanNetwork({
-      onStart: () => {
-        setServerStatus('Iniciando busca por servidores...');
-        // Ativar a barra de progresso somente quando o scan realmente iniciar
-        setTimeout(() => setScanInProgress(true), 300);
-      },
-      onProgress: (status, progressPercent) => {
-        setServerStatus(status);
-        
-        // Usar o valor de progresso fornecido diretamente
-        if (progressPercent !== undefined) {
-          setScanProgress(progressPercent);
-        }
-        
-        // Incrementar contador de IPs verificados quando
-        // a mensagem indica verificação de IPs
-        if (status.includes('Escaneando')) {
-          setScannedIPsCount(prev => prev + 30); // Estimativa baseada no lote
-        }
-        
-        // Se encontrou um servidor, atualizar a interface
-        if (status.includes('Servidor encontrado:')) {
-          // A lista de servidores é atualizada pelo callback onServerFound
-        }
-      },
-      onServerFound: (ip) => {
-        // Adicionar à lista de servidores disponíveis
-        setAvailableServers(prevServers => {
-          if (!prevServers.includes(ip)) {
-            return [...prevServers, ip];
-          }
-          return prevServers;
-        });
-      },
-      onComplete: (foundServers) => {
-        setIsScanning(false);
-        setScanInProgress(false);
-        
-        if (foundServers.length > 0) {
-          setServerStatus(`${foundServers.length} servidor(es) encontrado(s)`);
-          // Mostrar modal apenas se houver mais de um servidor
-          if (foundServers.length > 1) {
-            setServersModalVisible(true);
-          } else if (foundServers.length === 1) {
-            // Se houver apenas um servidor, seleciona automaticamente
-            setServerIP(foundServers[0]);
-            setServerStatus(`Servidor encontrado: ${foundServers[0]}`);
-          }
-        } else {
-          setServerStatus('Nenhum servidor encontrado. Digite o IP manualmente.');
-        }
-      }
-    });
+  // Animação de entrada
+  const fadeIn = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      })
+    ]).start();
   };
   
-  // Função para verificar e solicitar permissões (apenas Android)
+  // Obter informações da rede
+  const checkNetworkInfo = async () => {
+    const info = await getCurrentNetworkInfo();
+    setNetworkInfo(info);
+  };
+  
+  // Carregar servidores recentes do histórico
+  const loadRecentServers = async () => {
+    try {
+      const historyJson = await AsyncStorage.getItem('connectionHistory');
+      if (historyJson) {
+        const history = JSON.parse(historyJson);
+        // Ordenar por mais recentes primeiro
+        history.sort((a, b) => new Date(b.lastConnected) - new Date(a.lastConnected));
+        setRecentServers(history.slice(0, 3)); // Mostrar apenas os 3 mais recentes
+      }
+      
+      const lastIP = await AsyncStorage.getItem('lastServerIP');
+      if (lastIP) {
+        setServerIP(lastIP);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar servidores recentes:', error);
+    }
+  };
+  
+  // Verificar permissões necessárias
   const checkAndRequestPermissions = async () => {
     try {
-      // Verificar permissão de localização (necessário para Wi-Fi em Android)
-      const { status: locationStatus } = await Location.getForegroundPermissionsAsync();
+      const { status } = await Location.getForegroundPermissionsAsync();
       
-      if (locationStatus === 'granted') {
-        return true;
-      }
+      if (status === 'granted') return true;
       
-      // Se não tem permissão, solicitar
       const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
       
-      if (newStatus === 'granted') {
-        return true;
-      }
+      if (newStatus === 'granted') return true;
       
-      // Se o usuário negou, mostrar explicação e oferecer redirecionamento para configurações
       Alert.alert(
         'Permissão necessária',
         'Para escanear a rede Wi-Fi, o aplicativo precisa de acesso à localização do dispositivo.',
@@ -178,205 +136,386 @@ export const ConnectionScreen = () => {
     }
   };
   
-  // Função simplificada para abrir configurações do aplicativo (apenas Android)
+  // Abrir configurações do aplicativo
   const openAppSettings = () => {
     IntentLauncher.startActivityAsync(
       IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
-      { data: 'package:com.lnarakl.slidecontroller' }  // Use o mesmo package do app.json
+      { data: 'package:com.lnarakl.slidecontroller' }
     );
   };
   
-  // Escolher servidor da lista
+  // Iniciar escaneamento da rede
+  const handleScanNetwork = async () => {
+    Keyboard.dismiss();
+    const hasPermissions = await checkAndRequestPermissions();
+    
+    if (!hasPermissions) return;
+    
+    setServerStatus('Preparando escaneamento...');
+    setAvailableServers([]);
+    setScannedIPsCount(0);
+    setScanProgress(0);
+    setIsScanning(true);
+    setScanInProgress(false);
+    
+    scanNetwork({
+      onStart: () => {
+        setServerStatus('Buscando servidores...');
+        setTimeout(() => setScanInProgress(true), 300);
+      },
+      onProgress: (status, progressPercent) => {
+        setServerStatus(status);
+        if (progressPercent !== undefined) {
+          setScanProgress(progressPercent);
+        }
+        if (status.includes('Escaneando')) {
+          setScannedIPsCount(prev => prev + 30);
+        }
+      },
+      onServerFound: (ip) => {
+        setAvailableServers(prev => {
+          if (!prev.includes(ip)) {
+            return [...prev, ip];
+          }
+          return prev;
+        });
+      },
+      onComplete: (foundServers) => {
+        setIsScanning(false);
+        setScanInProgress(false);
+        
+        if (foundServers.length > 0) {
+          setServerStatus(`${foundServers.length} servidor(es) encontrado(s)`);
+        } else {
+          setServerStatus('Nenhum servidor encontrado. Digite o IP manualmente.');
+        }
+      }
+    });
+  };
+  
+  // Selecionar servidor da lista
   const selectServer = (ip) => {
     setServerIP(ip);
-    setServersModalVisible(false);
-    // Conectar automaticamente ao servidor selecionado
-    setTimeout(() => {
-      connectToServer();
-    }, 100);
+    setTimeout(() => handleConnect(), 100);
   };
   
-  // Conectar ao servidor escolhido
+  // Conectar ao servidor
   const handleConnect = () => {
-    if (serverIP) {
-      connectToServer();
+    if (!serverIP) {
+      Alert.alert('Erro', 'Digite o IP do servidor para conectar');
+      return;
     }
+    
+    Keyboard.dismiss();
+    connectToServer();
   };
-  
-  useEffect(() => {
-    const getNetworkInfo = async () => {
-      const info = await getCurrentNetworkInfo();
-      setNetworkInfo(info);
-    };
-    
-    getNetworkInfo();
-    
-    // Atualizar quando a tela for focada
-    const interval = setInterval(getNetworkInfo, 10000);
-    return () => clearInterval(interval);
-  }, []);
   
   return (
-    <View style={styles.container}>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="IP do servidor (ex: 192.168.1.100)"
-          value={serverIP}
-          onChangeText={setServerIP}
-          keyboardType="decimal-pad"
-          autoCapitalize="none"
-          editable={!isConnecting && !isScanning}
-        />
-        
-        <TouchableOpacity 
-          style={[
-            styles.scanButton,
-            (isConnecting || isScanning) ? styles.disabledButton : null
-          ]}
-          onPress={handleScanNetwork}
-          disabled={isConnecting || isScanning}
-        >
-          {isScanning && !scanInProgress ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.scanButtonText}>🔍</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-      
-      {serverStatus && (
-        <Text style={styles.statusText}>{serverStatus}</Text>
-      )}
-      
-      {availableServers.length > 0 && (
-        <TouchableOpacity
-          style={styles.serversListButton}
-          onPress={() => setServersModalVisible(true)}
-        >
-          <Text style={styles.serversListButtonText}>
-            Mostrar {availableServers.length} servidor(es) encontrado(s)
-          </Text>
-        </TouchableOpacity>
-      )}
-      
-      <TouchableOpacity
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Cabeçalho */}
+      <Animated.View 
         style={[
-          styles.connectButton,
-          (isConnecting || isScanning || !serverIP) ? styles.disabledButton : null
+          styles.header,
+          { 
+            backgroundColor: theme.primary,
+            opacity: fadeAnim, 
+            transform: [{ translateY: slideAnim }]
+          }
         ]}
-        onPress={handleConnect}
-        disabled={isConnecting || isScanning || !serverIP}
       >
-        {isConnecting ? (
-          <ActivityIndicator color="#fff" size="small" />
-        ) : (
-          <Text style={styles.buttonText}>Conectar</Text>
+        <Text style={styles.headerTitle}>Slide Controller</Text>
+        
+        {/* Informação da rede */}
+        {networkInfo && networkInfo.isConnected && (
+          <View style={styles.networkBadge}>
+            <Ionicons 
+              name={networkInfo.type === 'wifi' ? 'wifi' : 'cellular'} 
+              size={14} 
+              color="#fff" 
+            />
+            <Text style={styles.networkText}>
+              {networkInfo.type === 'wifi' ? 'Wi-Fi' : 'Dados móveis'}
+              {networkInfo.details && networkInfo.details.ipAddress && 
+                ` (${networkInfo.details.ipAddress})`}
+            </Text>
+          </View>
         )}
-      </TouchableOpacity>
+      </Animated.View>
       
-      {scanInProgress && (
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarContainer}>
-            <View 
-              style={[
-                styles.progressBar, 
-                { width: `${scanProgress}%` }
-              ]} 
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Card de conexão */}
+        <Animated.View 
+          style={[
+            styles.card, 
+            { 
+              backgroundColor: theme.cardBackground, 
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+            Conectar a um servidor
+          </Text>
+          
+          {/* Input de IP */}
+          <View style={[
+            styles.inputContainer,
+            { 
+              backgroundColor: theme.inputBackground,
+              borderColor: inputFocused ? theme.primary : theme.inputBorder 
+            },
+            inputFocused && styles.inputFocused
+          ]}>
+            <Ionicons 
+              name="server-outline" 
+              size={20} 
+              color={inputFocused ? theme.primary : theme.textSecondary} 
+            />
+            <TextInput
+              style={[styles.input, { color: theme.textPrimary }]}
+              placeholder="Digite o IP do servidor (ex: 192.168.1.100)"
+              placeholderTextColor={theme.textSecondary}
+              value={serverIP}
+              onChangeText={setServerIP}
+              keyboardType="decimal-pad"
+              autoCapitalize="none"
+              editable={!isConnecting && !isScanning}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
             />
           </View>
-          <Text style={styles.progressText}>
-            Buscando servidores... {scanProgress}%
-          </Text>
-          <Text style={styles.networkText}>
-            Verificados aproximadamente {scannedIPsCount} endereços IP
-          </Text>
-        </View>
-      )}
-      
-      {/* Modal para exibir lista de servidores */}
-      <Modal
-        visible={serversModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setServersModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Servidores Disponíveis</Text>
-            
-            <FlatList
-              data={availableServers}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.serverItem}
-                  onPress={() => selectServer(item)}
-                >
-                  <Text style={styles.serverItemIp}>{item}</Text>
-                  <Text style={styles.serverItemAction}>Conectar</Text>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                <Text style={styles.emptyListText}>
-                  Nenhum servidor encontrado
-                </Text>
-              }
-              style={styles.serversList}
-            />
-            
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setServersModalVisible(false)}
+          
+          {/* Botões de ação */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity 
+              style={[
+                styles.button,
+                styles.connectButton,
+                { backgroundColor: theme.primary },
+                (!serverIP || isConnecting || isScanning) && styles.buttonDisabled
+              ]}
+              onPress={handleConnect}
+              disabled={!serverIP || isConnecting || isScanning}
+              activeOpacity={0.8}
             >
-              <Text style={styles.closeButtonText}>Fechar</Text>
+              {isConnecting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="link-outline" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Conectar</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.button,
+                styles.scanButton,
+                { backgroundColor: theme.accent },
+                isScanning && styles.buttonDisabled
+              ]}
+              onPress={handleScanNetwork}
+              disabled={isScanning}
+              activeOpacity={0.8}
+            >
+              {isScanning && !scanInProgress ? (
+                <ActivityIndicator color={theme.primary} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="search-outline" size={20} color={theme.primary} />
+                  <Text style={[styles.buttonText, { color: theme.primary }]}>Buscar</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-      
-      <Text style={styles.infoText}>
-        Esta versão suporta todos os comandos do servidor Slide Controll v1.0.
-      </Text>
-      
-      <Text style={styles.portText}>
-         Desenvolvido por Karan Luciano
-      </Text>
-      
-      {showAdvancedOptions && (
-        <View style={styles.advancedContainer}>
-          <Text style={styles.advancedLabel}>Prefixo de rede (opcional):</Text>
-          <TextInput
-            style={styles.advancedInput}
-            placeholder="Ex: 24"
-            value={networkPrefix}
-            onChangeText={setNetworkPrefix}
-            keyboardType="decimal-pad"
-            editable={!isScanning}
-          />
-          <Text style={styles.advancedHint}>
-            Deixe em branco para detecção automática
-          </Text>
-        </View>
-      )}
-      
-      <TouchableOpacity
-        style={styles.advancedButton}
-        onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
-      >
-        <Text style={styles.advancedButtonText}>
-          {showAdvancedOptions ? 'Ocultar opções avançadas' : 'Opções avançadas'}
-        </Text>
-      </TouchableOpacity>
-      
-      {networkInfo && networkInfo.isConnected && (
-        <Text style={styles.networkInfoText}>
-          Rede atual: {networkInfo.type === 'wifi' ? 'Wi-Fi' : networkInfo.type}
-          {networkInfo.details && networkInfo.details.ipAddress && (
-            ` (IP: ${networkInfo.details.ipAddress})`
+          
+          {/* Status da conexão/scan */}
+          {serverStatus && (
+            <Text style={[styles.statusText, { color: theme.textSecondary }]}>
+              {serverStatus}
+            </Text>
           )}
-        </Text>
-      )}
+          
+          {/* Barra de progresso */}
+          {scanInProgress && (
+            <View style={styles.progressContainer}>
+              <View style={[styles.progressTrack, { backgroundColor: theme.inactive }]}>
+                <View 
+                  style={[
+                    styles.progressBar, 
+                    { width: `${scanProgress}%`, backgroundColor: theme.primary }
+                  ]} 
+                />
+              </View>
+              <Text style={[styles.progressText, { color: theme.textPrimary }]}>
+                {scannedIPsCount > 0 && `${scanProgress}% (verificados ~${scannedIPsCount} IPs)`}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+        
+        {/* Servidores encontrados */}
+        {availableServers.length > 0 && (
+          <Animated.View 
+            style={[
+              styles.card, 
+              styles.serversCard,
+              { 
+                backgroundColor: theme.cardBackground,
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+                Servidores disponíveis
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.refreshButton}
+                onPress={handleScanNetwork}
+                disabled={isScanning}
+              >
+                <Ionicons 
+                  name="refresh-outline" 
+                  size={20} 
+                  color={isScanning ? theme.textSecondary : theme.primary} 
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.serversList}
+              showsVerticalScrollIndicator={false}
+            >
+              {availableServers.map((ip, index) => (
+                <TouchableOpacity
+                  key={ip}
+                  style={[
+                    styles.serverItem, 
+                    { 
+                      borderBottomColor: theme.divider,
+                      borderBottomWidth: index < availableServers.length - 1 ? 1 : 0
+                    }
+                  ]}
+                  onPress={() => selectServer(ip)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.serverInfo}>
+                    <Ionicons name="desktop-outline" size={20} color={theme.primary} />
+                    <Text style={[styles.serverIp, { color: theme.textPrimary }]}>{ip}</Text>
+                  </View>
+                  
+                  <View style={[styles.connectBadge, { backgroundColor: theme.accent }]}>
+                    <Text style={[styles.connectText, { color: theme.primary }]}>Conectar</Text>
+                    <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+        
+        {/* Conexões recentes */}
+        {recentServers.length > 0 && !isScanning && availableServers.length === 0 && (
+          <Animated.View 
+            style={[
+              styles.card, 
+              styles.recentCard,
+              { 
+                backgroundColor: theme.cardBackground,
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+              Conexões recentes
+            </Text>
+            
+            <View style={styles.recentList}>
+              {recentServers.map((server, index) => (
+                <TouchableOpacity
+                  key={server.ip}
+                  style={[
+                    styles.recentItem, 
+                    { 
+                      borderBottomColor: theme.divider,
+                      borderBottomWidth: index < recentServers.length - 1 ? 1 : 0
+                    }
+                  ]}
+                  onPress={() => selectServer(server.ip)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.recentInfo}>
+                    <Ionicons name="time-outline" size={20} color={theme.primary} />
+                    <View style={styles.recentTextContainer}>
+                      <Text style={[styles.recentName, { color: theme.textPrimary }]}>
+                        {server.friendlyName || server.ip}
+                      </Text>
+                      <Text style={[styles.recentTime, { color: theme.textSecondary }]}>
+                        {new Date(server.lastConnected).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+        
+        {/* Card de ajuda */}
+        {!isScanning && availableServers.length === 0 && (
+          <Animated.View 
+            style={[
+              styles.card, 
+              styles.helpCard,
+              { 
+                backgroundColor: theme.accent + '40', 
+                borderColor: theme.accent,
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <Ionicons 
+              name="information-circle-outline" 
+              size={28} 
+              color={theme.primary} 
+              style={styles.helpIcon}
+            />
+            
+            <Text style={[styles.helpTitle, { color: theme.primary }]}>
+              Como usar:
+            </Text>
+            
+            <Text style={[styles.helpText, { color: theme.textPrimary }]}>
+              1. Certifique-se de que o computador e o celular estão na mesma rede Wi-Fi
+            </Text>
+            
+            <Text style={[styles.helpText, { color: theme.textPrimary }]}>
+              2. Inicie o servidor Slide Controller no computador
+            </Text>
+            
+            <Text style={[styles.helpText, { color: theme.textPrimary }]}>
+              3. Toque em "Buscar" para encontrar servidores automaticamente ou digite o IP manualmente
+            </Text>
+            
+            <Text style={[styles.helpText, { color: theme.textPrimary }]}>
+              4. Toque em "Conectar" para iniciar o controle da apresentação
+            </Text>
+          </Animated.View>
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -384,216 +523,220 @@ export const ConnectionScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  networkBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  networkText: {
+    color: '#fff',
+    fontSize: 12,
+    marginLeft: 6,
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   inputContainer: {
     flexDirection: 'row',
-    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 56,
     marginBottom: 16,
+  },
+  inputFocused: {
+    borderWidth: 2,
   },
   input: {
     flex: 1,
-    height: 50,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 16,
     fontSize: 16,
-    color: '#212121',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    paddingHorizontal: 8,
+    height: '100%',
   },
-  scanButton: {
-    width: 50,
-    height: 50,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  button: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    marginLeft: 8,
-    paddingHorizontal: 0,
-    overflow: 'hidden',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   connectButton: {
-    width: '100%',
-    height: 50,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 16,
+    flex: 3,
+    marginRight: 8,
+  },
+  scanButton: {
+    flex: 2,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   statusText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginBottom: 16,
     textAlign: 'center',
+    fontSize: 14,
   },
   progressContainer: {
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 16,
     alignItems: 'center',
   },
-  progressText: {
-    color: colors.primary,
-    fontSize: 16,
-    marginTop: 12,
-    fontWeight: '500',
-  },
-  networkText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  portText: {
-    position: 'absolute',
-    bottom: 20,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  scanButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  progressBarContainer: {
-    height: 8,
+  progressTrack: {
+    height: 6,
     width: '100%',
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    marginBottom: 8,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: colors.primary,
   },
-  infoText: {
-    color: colors.textSecondary,
+  progressText: {
     fontSize: 14,
-    textAlign: 'center',
-    marginTop: 32,
-    marginHorizontal: 20,
+    fontWeight: '500',
+    marginTop: 8,
   },
-  serversListButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 10,
+  serversCard: {
+    marginTop: 0,
   },
-  serversListButtonText: {
-    color: colors.primary,
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 16,
-    textAlign: 'center',
+  refreshButton: {
+    padding: 8,
   },
   serversList: {
-    maxHeight: 300,
+    maxHeight: 280,
   },
   serverItem: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  serverItemIp: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  serverItemAction: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  emptyListText: {
-    textAlign: 'center',
-    padding: 20,
-    color: colors.textSecondary,
-  },
-  closeButton: {
-    backgroundColor: '#e0e0e0',
     paddingVertical: 12,
-    borderRadius: 8,
+  },
+  serverInfo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    flex: 1,
   },
-  closeButtonText: {
-    color: colors.textPrimary,
-    fontWeight: 'bold',
-  },
-  advancedContainer: {
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  advancedLabel: {
+  serverIp: {
     fontSize: 16,
+    marginLeft: 12,
+  },
+  connectBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  connectText: {
     fontWeight: 'bold',
-    color: colors.primary,
+    fontSize: 14,
+    marginRight: 4,
+  },
+  recentCard: {
+    marginTop: 0,
+  },
+  recentList: {},
+  recentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  recentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  recentTextContainer: {
+    marginLeft: 12,
+  },
+  recentName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  recentTime: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  helpCard: {
+    marginTop: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  helpIcon: {
+    marginBottom: 12,
+  },
+  helpTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     marginBottom: 16,
   },
-  advancedInput: {
+  helpText: {
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'left',
     width: '100%',
-    height: 50,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#212121',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  advancedHint: {
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
-  advancedButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  advancedButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  networkInfoText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 16,
-    textAlign: 'center',
-  },
+    marginBottom: 8,
+  }
 }); 
