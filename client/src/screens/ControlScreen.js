@@ -17,6 +17,7 @@ import { useAppContext } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { useVolumeButtons } from '../hooks/useVolumeButtons';
 import { colors } from '../styles/colors';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export const ControlScreen = () => {
   const { 
@@ -43,6 +44,7 @@ export const ControlScreen = () => {
   
   // Estados locais
   const [advancedOptionsVisible, setAdvancedOptionsVisible] = useState(false);
+  const [infoModalVisible, setInfoModalVisible] = useState(true);
   
   // Animações
   const controlsOpacity = useRef(new Animated.Value(0)).current;
@@ -55,12 +57,8 @@ export const ControlScreen = () => {
       useNativeDriver: true,
     }).start();
     
-    // Mostrar alerta ao usuário sobre os comandos disponíveis
-    Alert.alert(
-      "Controle de Apresentação",
-      "Este aplicativo suporta:\n• Navegação de slides\n• Iniciar/finalizar apresentação\n• Tela em branco\n• Temporizador",
-      [{ text: "Entendi", onPress: () => console.log("Alerta fechado") }]
-    );
+    // Adicionar state para controlar a visibilidade do modal
+    setInfoModalVisible(true);
   }, []);
   
   // Hook para botões de volume
@@ -99,6 +97,48 @@ export const ControlScreen = () => {
   
   return (
     <Animated.View style={[styles.container, { opacity: controlsOpacity, backgroundColor: theme.background }]}>
+      {/* Modal de informações inicial */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={infoModalVisible}
+        onRequestClose={() => setInfoModalVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+              Controle de Apresentação
+            </Text>
+            
+            <View style={styles.modalFeatures}>
+              <View style={styles.featureItem}>
+                <Ionicons name="chevron-forward" size={20} color={theme.primary} style={{marginRight: 8}} />
+                <Text style={[styles.featureText, { color: theme.textPrimary }]}>Navegação de slides</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="play" size={20} color={theme.primary} style={{marginRight: 8}} />
+                <Text style={[styles.featureText, { color: theme.textPrimary }]}>Iniciar/finalizar apresentação</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="contrast" size={20} color={theme.primary} style={{marginRight: 8}} />
+                <Text style={[styles.featureText, { color: theme.textPrimary }]}>Tela em branco</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="timer-outline" size={20} color={theme.primary} style={{marginRight: 8}} />
+                <Text style={[styles.featureText, { color: theme.textPrimary }]}>Temporizador</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.confirmButton, { backgroundColor: theme.primary }]}
+              onPress={() => setInfoModalVisible(false)}
+            >
+              <Text style={styles.confirmButtonText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
       {/* Temporizador */}
       <View style={[styles.timerContainer, { backgroundColor: theme.cardBackground }]}>
         <Text style={[styles.timerLabel, { color: theme.textPrimary }]}>Temporizador</Text>
@@ -131,7 +171,8 @@ export const ControlScreen = () => {
         </View>
         
         {/* Interruptor para escolher o lado do temporizador */}
-        <View style={styles.timerModeContainer}>
+        {/* TODO: não usar por enquanto */}
+        {/* <View style={styles.timerModeContainer}>
           <Text style={[styles.timerModeLabel, { color: theme.textSecondary }]}>Local</Text>
           <Switch
             value={useServerTimer}
@@ -140,13 +181,13 @@ export const ControlScreen = () => {
             thumbColor={useServerTimer ? "#fff" : "#f4f3f4"}
           />
           <Text style={[styles.timerModeLabel, { color: theme.textSecondary }]}>Servidor</Text>
-        </View>
+        </View> */}
         
-        {timerActive && (
+        {/* {timerActive && (
           <Text style={[styles.timerHint, { color: theme.textSecondary }]}>
             {useServerTimer ? 'O tempo está sendo controlado pelo servidor' : 'O tempo está sendo controlado pelo app'}
           </Text>
-        )}
+        )} */}
       </View>
       
       {/* Controles principais de navegação (maiores) */}
@@ -362,15 +403,47 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
     width: '90%',
     maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 20,
     textAlign: 'center',
+  },
+  modalFeatures: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  featureText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  confirmButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   modalButtons: {
     marginBottom: 16,
