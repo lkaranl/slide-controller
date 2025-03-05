@@ -4,14 +4,9 @@
     "slug": "slide-controller",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/slide.png",
+    "icon": "./assets/ic_launcher/web_hi_res_512.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#3f51b5"
-    },
     "updates": {
       "fallbackToCacheTimeout": 0
     },
