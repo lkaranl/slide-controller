@@ -221,54 +221,101 @@ export const ControlScreen = () => {
         </TouchableOpacity>
       </View>
       
-      {/* Modal de opções avançadas simplificado */}
+      {/* Modal de opções avançadas melhorado */}
       <Modal
         visible={advancedOptionsVisible}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setAdvancedOptionsVisible(false)}
       >
         <View style={[styles.modalOverlay, { backgroundColor: theme.modalBackground }]}>
-          <View style={[styles.modalContent, { backgroundColor: theme.modalContent }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>Controles de Apresentação</Text>
+          <View style={[styles.advancedModalContent, { backgroundColor: theme.cardBackground }]}>
+            <View style={styles.modalHeaderBar} />
             
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: theme.primary }]}
-                onPress={() => {
-                  startPresentation();
-                  setAdvancedOptionsVisible(false);
-                }}
-              >
-                <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Iniciar Apresentação</Text>
-              </TouchableOpacity>
+            <Text style={[styles.advancedModalTitle, { color: theme.textPrimary }]}>
+              Controles Avançados
+            </Text>
+            
+            {/* Seção de controle da apresentação */}
+            <View style={styles.controlSection}>
+              <Text style={[styles.sectionTitle, { color: theme.primary }]}>
+                Apresentação
+              </Text>
               
-              <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: theme.primary }]}
-                onPress={() => {
-                  endPresentation();
-                  setAdvancedOptionsVisible(false);
-                }}
-              >
-                <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Finalizar Apresentação</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: theme.primary }]}
-                onPress={() => {
-                  blankScreen();
-                  setAdvancedOptionsVisible(false);
-                }}
-              >
-                <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Alternar Tela Preta</Text>
-              </TouchableOpacity>
+              <View style={styles.controlButtonsRow}>
+                <TouchableOpacity 
+                  style={[styles.controlButton, { backgroundColor: theme.accent }]} 
+                  onPress={() => {
+                    startPresentation();
+                    setAdvancedOptionsVisible(false);
+                  }}
+                >
+                  <Ionicons name="play-circle-outline" size={24} color={theme.primary} />
+                  <Text style={[styles.controlButtonText, { color: theme.textPrimary }]}>
+                    Iniciar
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.controlButton, { backgroundColor: theme.accent }]} 
+                  onPress={() => {
+                    endPresentation();
+                    setAdvancedOptionsVisible(false);
+                  }}
+                >
+                  <Ionicons name="stop-circle-outline" size={24} color={theme.error} />
+                  <Text style={[styles.controlButtonText, { color: theme.textPrimary }]}>
+                    Finalizar
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.controlButton, { backgroundColor: theme.accent }]} 
+                  onPress={() => {
+                    blankScreen();
+                    setAdvancedOptionsVisible(false);
+                  }}
+                >
+                  <Ionicons name="contrast-outline" size={24} color={theme.textPrimary} />
+                  <Text style={[styles.controlButtonText, { color: theme.textPrimary }]}>
+                    Tela Preta
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
             
-            <TouchableOpacity
-              style={[styles.closeButton, { backgroundColor: theme.inverseButton }]}
+            {/* Seção de informações */}
+            {serverMessages.length > 0 && (
+              <View style={styles.serverInfoSection}>
+                <Text style={[styles.sectionTitle, { color: theme.primary }]}>
+                  Mensagens do Servidor
+                </Text>
+                
+                <ScrollView 
+                  style={[styles.messagesScroll, { backgroundColor: theme.background }]}
+                  contentContainerStyle={styles.messagesContent}
+                >
+                  {serverMessages.map((msg, index) => (
+                    <View 
+                      key={index} 
+                      style={[styles.messageItem, { borderColor: theme.divider }]}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color={theme.primary} style={styles.messageIcon} />
+                      <Text style={[styles.messageText, { color: theme.textPrimary }]}>
+                        {msg}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            
+            {/* Botão de fechar */}
+            <TouchableOpacity 
+              style={[styles.closeAdvancedButton, { backgroundColor: theme.primary }]}
               onPress={() => setAdvancedOptionsVisible(false)}
             >
-              <Text style={[styles.closeButtonText, { color: theme.inverseButtonText }]}>Fechar</Text>
+              <Text style={styles.closeAdvancedButtonText}>Fechar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -445,26 +492,92 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  modalButtons: {
+  advancedModalContent: {
+    borderRadius: 24,
+    padding: 24, 
+    paddingTop: 16,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeaderBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#ccc',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  advancedModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  controlSection: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
     marginBottom: 16,
   },
-  modalButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
+  controlButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  controlButton: {
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
+    width: '30%',
+    marginBottom: 12,
   },
-  modalButtonText: {
-    fontWeight: 'bold',
-    fontSize: 16,
+  controlButtonText: {
+    marginTop: 8,
+    fontWeight: '500',
+    textAlign: 'center',
   },
-  closeButton: {
-    paddingVertical: 16,
-    borderRadius: 8,
+  serverInfoSection: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  messagesScroll: {
+    maxHeight: 120,
+    borderRadius: 12,
+  },
+  messagesContent: {
+    padding: 12,
+  },
+  messageItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
   },
-  closeButtonText: {
+  messageIcon: {
+    marginRight: 8,
+  },
+  messageText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  closeAdvancedButton: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  closeAdvancedButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
